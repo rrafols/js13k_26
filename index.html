@@ -1,0 +1,556 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Rainbow Unicorn — Isles of the Sun Door</title>
+<style>
+  html,body{margin:0;height:100%;background:#0e0b1e;display:grid;place-items:center;
+            font:14px/1.4 system-ui,sans-serif;color:#fff;overflow:hidden}
+  canvas{background:#1a1633;border-radius:10px;max-width:100vw;max-height:100vh;
+         touch-action:none;cursor:crosshair}
+</style>
+<canvas id=c width=960 height=564></canvas>
+<script>
+// Top-down tile dungeon. Throw rainbows to bridge water, light crystals and
+// torches, and bounce off mirrors; gallop to smash cracked walls and ram slimes.
+const TS = 40, COLS = 24, ROWS = 13, HUD = 44, W = COLS*TS, H = ROWS*TS + HUD;
+const cv = document.getElementById('c'), gm = cv.getContext('2d');
+const oc = document.createElement('canvas');                 // world buffer, so a
+oc.width = W; oc.height = H - HUD;                           // drained room can be
+const gw = oc.getContext('2d');                              // greyed in one blit
+let g = gm;
+
+// ---------- rooms ----------
+const SRC = [
+{ name:'Rainbow Falls', start:[2,6], links:{e:1}, m:[
+  '########################',
+  '#.........~~~~~........#',
+  '#.........~~~~~........#',
+  '#....H....~~~~~........#',
+  '#.........~~~~~........#',
+  '#.........~~~~~........#',
+  '#.........~~~~~.........',
+  '#.........~~~~~........#',
+  '#.........~~~~~........#',
+  '#.........~~~~~........#',
+  '#.........~~~~~........#',
+  '#.........~~~~~........#',
+  '########################']},
+
+{ name:'Key Chamber', start:[1,6], links:{w:0, e:2}, m:[
+  '########################',
+  '#......................#',
+  '#...E.......#######....#',
+  '#...........#.....#....#',
+  '#...~~~~~...#..K..#....#',
+  '#...~~~~~...#.....#....#',
+  '....~~~~~...###.###....D',
+  '#...~~~~~..............#',
+  '#...~~~~~......E.......#',
+  '#......................#',
+  '#..........E...........#',
+  '#......................#',
+  '########################']},
+
+{ name:'Switch Isles', start:[1,6], links:{w:1, e:3}, m:[
+  '########################',
+  '#.........~~~~~........#',
+  '#.........~~~~~........#',
+  '#....S....~~~~~...S....#',
+  '#.........~~~~~........#',
+  '#.........~~~~~........#',
+  '..........~~~~~........G',
+  '#.........~~~~~........#',
+  '#.........~~~~~........#',
+  '#....S....~~~~~...S....#',
+  '#.........~~~~~...H....#',
+  '#.........~~~~~........#',
+  '########################']},
+
+{ name:'Gallop Hall', start:[1,6], links:{w:2, e:4}, m:[
+  '########################',
+  '#.......#...~~~~~~~~...#',
+  '#.......#...~~~~~~~~...#',
+  '#..E....#...~~~~~~~~.E.#',
+  '#.......#...~~~~~~~~...#',
+  '#.......X...~~~~~~~~...#',
+  '........X...~~~~~~~~....',
+  '#.......X...~~~~~~~~...#',
+  '#.......#...~~~~~~~~...#',
+  '#..E....#...~~~~~~~~.E.#',
+  '#.H.....#...~~~~~~~~...#',
+  '#.......#...~~~~~~~~...#',
+  '########################']},
+
+{ name:'Mirror Hall', start:[1,6], links:{w:3, e:5}, m:[
+  '########################',
+  '#...S..\\......../..S...#',
+  '#...###....E.....###...#',
+  '#......................#',
+  '#.........~~~~~........#',
+  '#.........~~~~~........#',
+  '..........~~~~~........G',
+  '#.........~~~~~........#',
+  '#.........~~~~~........#',
+  '#.........~~~~~........#',
+  '#..E................E..#',
+  '#......................#',
+  '########################']},
+
+{ name:'Drained Vault', start:[1,6], links:{w:4, e:6}, drain:1, m:[
+  '########################',
+  '#........~~~~~~../..f..#',
+  '#..E.....~~~~~~...###..#',
+  '#........~~~~~~........#',
+  '#...f....~~~~~~........#',
+  '#........~~~~~~........#',
+  '.........~~~~~~........G',
+  '#........~~~~~~....E...#',
+  '#........~~~~~~........#',
+  '#........~~~~~~.....H..#',
+  '#..###...~~~~~~........#',
+  '#..f../..~~~~~~........#',
+  '########################']},
+
+{ name:'The Sun Door', start:[1,6], links:{w:5}, m:[
+  '########################',
+  '#....E.................#',
+  '#...~~~~~~~~~~~~~~~~...#',
+  '#...~~~~~~~~~~~~~~~~...#',
+  '#...~~~~~~~~~~~~~~~~...#',
+  '#...~~~~~~.....~~~~~...#',
+  '....~~~~~~..T..~~~~~...#',
+  '#...~~~~~~.....~~~~~...#',
+  '#...~~~~~~~~~~~~~~~~...#',
+  '#...~~~~~~~~~~~~~~~~...#',
+  '#...~~~~~~~~~~~~~~~~...#',
+  '#.............E........#',
+  '########################']},
+
+];
+
+// ---------- state ----------
+const SPD = 2.7, MINLEN = 80, MAXLEN = 280, MAXBOWS = 3, BOWLIFE = 420;
+const DASH = 13, DSPD = 6.6, DCD = 34;
+let rooms, room, map, ents, bows, bridged, ps, pl, aim, charge, charging, won, tick = 0, keys = {};
+
+function newGame(){
+  rooms = SRC.map(r => ({...r, m:r.m.map(s => s.split('')), ents:null, drain:r.drain || 0}));
+  pl = {x:0, y:0, r:13, dir:0, hp:3, keys:0, inv:0, dash:0, cd:0};
+  won = 0; aim = {x:600, y:300}; charge = 0; charging = 0;
+  enter(0, SRC[0].start[0]*TS + TS/2, SRC[0].start[1]*TS + TS/2);
+}
+function enter(i, x, y){
+  room = rooms[i]; map = room.m;
+  if(!room.ents){                                   // spawn pickups & enemies once per room
+    room.ents = [];
+    map.forEach((row, r) => row.forEach((t, c) => {
+      if('EKH'.includes(t)){
+        room.ents.push({t, x:c*TS + TS/2, y:r*TS + TS/2, hp:1, w:Math.random()*7});
+        map[r][c] = '.';
+      }
+    }));
+  }
+  ents = room.ents; bows = []; bridged = new Set(); ps = [];
+  pl.x = x; pl.y = y; pl.dash = 0; pl.spawn = [x, y];
+}
+
+// ---------- particles ----------
+const BANDS = ['#ff4d5e','#ff9c3d','#ffe14d','#5ddb62','#4db6ff','#5a5aff','#b04dff'];
+function part(x, y, n, col, spd, life, sz){
+  for(let i = 0; i < n && ps.length < 300; i++){
+    const a = Math.random()*7, s = Math.random()*spd;
+    ps.push({x, y, vx:Math.cos(a)*s, vy:Math.sin(a)*s, l:life*(.6 + Math.random()*.6),
+             m:life, c:col || BANDS[Math.random()*7 | 0], r:(sz || 3)*(.5 + Math.random())});
+  }
+}
+
+// ---------- input ----------
+onkeydown = e => { keys[e.key.toLowerCase()] = 1; if(e.key === ' ') e.preventDefault(); };
+onkeyup   = e => { keys[e.key.toLowerCase()] = 0; if(e.key.toLowerCase() === 'r') newGame(); };
+function toWorld(e){
+  const b = cv.getBoundingClientRect(), t = e.touches ? e.touches[0] : e;
+  aim.x = (t.clientX - b.left)/b.width * W;
+  aim.y = (t.clientY - b.top)/b.height * H - HUD;
+}
+cv.onmousemove = cv.ontouchmove  = e => { toWorld(e); e.preventDefault(); };
+cv.onmousedown = cv.ontouchstart = e => { toWorld(e); charging = 1; charge = MINLEN; e.preventDefault(); };
+onmouseup = ontouchend = () => { if(charging){ fire(); charging = 0; } };
+
+// ---------- tiles ----------
+// # wall  . floor  ~ water  S/s crystal  f/F torch  / \ mirror  X cracked wall
+// G gate  D locked door  K key  H heart  E slime  T sun door
+const at = (c, r) => (c < 0 || r < 0 || c >= COLS || r >= ROWS) ? '#' : map[r][c];
+const gateOpen = () => !map.some(row => row.includes('S') || row.includes('f'));
+
+function solid(x, y){
+  const c = x/TS | 0, r = y/TS | 0, t = at(c, r);
+  if('#XDfF/\\'.includes(t)) return 1;
+  if(t === 'G') return gateOpen() ? 0 : 1;
+  if(t === '~') return bridged.has(c + ',' + r) ? 0 : 1;
+  return 0;
+}
+const blocked = (x, y, r) => solid(x-r, y-r) || solid(x+r, y-r) || solid(x-r, y+r) || solid(x+r, y+r);
+
+// ---------- rainbow ----------
+// March from the unicorn toward the cursor: bridge water, light crystals and
+// torches, blast slimes, bounce off mirrors, stop at walls.
+function cast(len, real){
+  let dx = aim.x - pl.x, dy = aim.y - pl.y, d = Math.hypot(dx, dy) || 1;
+  dx /= d; dy /= d;
+  let x = pl.x, y = pl.y, sx = x, sy = y, rem = len, bounces = 0, lastM = '';
+  const segs = [], tiles = [];
+  while(rem > 0){
+    const s = Math.min(4, rem);
+    x += dx*s; y += dy*s; rem -= s;
+    const c = x/TS | 0, r = y/TS | 0, t = at(c, r), id = c + ',' + r;
+    if('#XD'.includes(t) || (t === 'G' && !gateOpen())){ x -= dx*s; y -= dy*s; break; }
+    if((t === '/' || t === '\\') && bounces < 6 && id !== lastM){
+      bounces++; lastM = id;
+      const mx = c*TS + TS/2, my = r*TS + TS/2;
+      segs.push({x:sx, y:sy, dx, dy, len:Math.hypot(mx - sx, my - sy)});
+      const ndx = t === '/' ? -dy : dy, ndy = t === '/' ? -dx : dx;
+      dx = ndx; dy = ndy; x = sx = mx; y = sy = my;
+      if(real) part(mx, my, 8, '#fff', 2.6, 20, 2);
+      continue;
+    }
+    if(t === '~') tiles.push(id);
+    if(real){
+      if(t === 'S'){ map[r][c] = 's'; part(c*TS + 20, r*TS + 20, 20, '#ffe14d', 3.4, 34); }
+      if(t === 'f'){ map[r][c] = 'F'; part(c*TS + 20, r*TS + 20, 20, '#ff9c3d', 3.4, 34); }
+      for(const e of ents)
+        if(e.t === 'E' && e.hp && Math.hypot(e.x - x, e.y - y) < 20) kill(e);
+    }
+  }
+  segs.push({x:sx, y:sy, dx, dy, len:Math.hypot(x - sx, y - sy)});
+  return {segs, tiles, life:BOWLIFE};
+}
+function kill(e){ e.hp = 0; e.pop = 12; part(e.x, e.y, 16, '#b04dff', 3.2, 28); }
+function fire(){
+  bows.push(cast(charge, 1));
+  if(bows.length > MAXBOWS) bows.shift();
+  bridged = new Set(bows.flatMap(b => b.tiles));
+  part(pl.x + Math.cos(pl.dir)*16, pl.y + Math.sin(pl.dir)*16, 12, 0, 3, 24);
+}
+
+// ---------- update ----------
+function hurt(n){
+  if(pl.inv > 0 || pl.dash > 0) return;
+  pl.hp -= n; pl.inv = 70;
+  part(pl.x, pl.y, 16, '#ff5470', 3.4, 30);
+  if(pl.hp <= 0) newGame();
+}
+function step(){
+  tick++;
+  for(let i = ps.length - 1; i >= 0; i--){
+    const p = ps[i];
+    p.x += p.vx; p.y += p.vy; p.vx *= .93; p.vy *= .93;
+    if(--p.l <= 0) ps.splice(i, 1);
+  }
+  if(won){ won++; return; }
+  if(charging) charge = Math.min(MAXLEN, charge + 4);
+  if(pl.inv > 0) pl.inv--;
+  if(pl.cd > 0) pl.cd--;
+
+  // rainbows fade, and take their bridges with them
+  bows.forEach(b => b.life--);
+  if(bows.some(b => b.life <= 0)){
+    bows = bows.filter(b => b.life > 0);
+    bridged = new Set(bows.flatMap(b => b.tiles));
+  }
+
+  // move: gallop overrides steering, normal walking otherwise
+  if((keys.shift || keys[' ']) && pl.cd <= 0){ pl.dash = DASH; pl.cd = DASH + DCD; }
+  if(pl.dash > 0){
+    pl.dash--;
+    const vx = Math.cos(pl.dir), vy = Math.sin(pl.dir);
+    const fc = (pl.x + vx*(pl.r + 10))/TS | 0, fr = (pl.y + vy*(pl.r + 10))/TS | 0;
+    if(at(fc, fr) === 'X'){                          // smash a cracked wall
+      map[fr][fc] = '.';
+      part(fc*TS + 20, fr*TS + 20, 26, '#8878c8', 4.5, 34, 4);
+    }
+    if(!blocked(pl.x + vx*DSPD, pl.y, pl.r)) pl.x += vx*DSPD;
+    if(!blocked(pl.x, pl.y + vy*DSPD, pl.r)) pl.y += vy*DSPD;
+    part(pl.x - vx*14, pl.y - vy*14, 2, 0, 1.6, 18, 2.5);
+  } else {
+    let vx = (keys.d || keys.arrowright ? 1 : 0) - (keys.a || keys.arrowleft ? 1 : 0);
+    let vy = (keys.s || keys.arrowdown  ? 1 : 0) - (keys.w || keys.arrowup   ? 1 : 0);
+    if(vx || vy){
+      const m = SPD / Math.hypot(vx, vy);
+      pl.dir = Math.atan2(vy, vx);
+      if(!blocked(pl.x + vx*m, pl.y, pl.r)) pl.x += vx*m;
+      if(!blocked(pl.x, pl.y + vy*m, pl.r)) pl.y += vy*m;
+    }
+  }
+
+  // the tile underfoot
+  const c = pl.x/TS | 0, r = pl.y/TS | 0, t = at(c, r);
+  if(t === '~' && !bridged.has(c + ',' + r)){        // the bridge faded away
+    part(pl.x, pl.y, 24, '#4db6ff', 4, 30);
+    hurt(1); pl.dash = 0; pl.x = pl.spawn[0]; pl.y = pl.spawn[1];
+  }
+  if(t === 'T') won = 1;
+
+  if(pl.keys > 0) for(const [dc, dr] of [[1,0],[-1,0],[0,1],[0,-1]])
+    if(at(c + dc, r + dr) === 'D'){                  // a key unlocks the door beside you
+      map[r + dr][c + dc] = '.'; pl.keys--;
+      part((c + dc)*TS + 20, (r + dr)*TS + 20, 22, '#ffd84d', 3.5, 32);
+      break;
+    }
+
+  // colour floods back once a drained room's crystals and torches are all lit
+  if(room.drain > 0 && gateOpen()){
+    room.drain = Math.max(0, room.drain - .012);
+    if(!room.burst){
+      room.burst = 1;
+      for(let i = 0; i < 70; i++) part(Math.random()*W, Math.random()*(H - HUD), 1, 0, 2.5, 70, 3.5);
+    }
+  }
+  if(tick % 3 === 0) for(let r2 = 0; r2 < ROWS; r2++) for(let c2 = 0; c2 < COLS; c2++)
+    if(map[r2][c2] === 'F' && Math.random() < .35)   // torch flames
+      ps.push({x:c2*TS + 20 + (Math.random()-.5)*10, y:r2*TS + 18, vx:0, vy:-.7 - Math.random(),
+               l:18, m:18, c:Math.random() < .5 ? '#ff9c3d' : '#ffe14d', r:2.5});
+
+  // room exits sit in the border columns
+  const L = room.links;
+  if(c === COLS-1 && L.e != null) enter(L.e, TS*1.5, pl.y);
+  else if(c === 0 && L.w != null) enter(L.w, W - TS*1.5, pl.y);
+
+  for(const e of ents){
+    if(e.pop) e.pop--;
+    if(!e.hp) continue;
+    if(e.t === 'E'){
+      let dx = pl.x - e.x, dy = pl.y - e.y, d = Math.hypot(dx, dy) || 1;
+      const sp = 1.15 + Math.sin(tick/20 + e.w)*.35;
+      if(!blocked(e.x + dx/d*sp, e.y, 11)) e.x += dx/d*sp;
+      if(!blocked(e.x, e.y + dy/d*sp, 11)) e.y += dy/d*sp;
+      if(d < 26){
+        if(pl.dash > 0) kill(e);                     // gallop straight through them
+        else if(pl.inv === 0){
+          hurt(1);
+          pl.x -= dx/d*22; pl.y -= dy/d*22;
+          if(blocked(pl.x, pl.y, pl.r)){ pl.x += dx/d*22; pl.y += dy/d*22; }
+        }
+      }
+    } else if(Math.hypot(pl.x - e.x, pl.y - e.y) < 22){
+      if(e.t === 'K'){ e.hp = 0; pl.keys++; part(e.x, e.y, 18, '#ffd84d', 3, 30); }
+      if(e.t === 'H' && pl.hp < 3){ e.hp = 0; pl.hp++; part(e.x, e.y, 18, '#ff5470', 3, 30); }
+    }
+  }
+}
+
+// ---------- drawing ----------
+function drawBow(b){
+  const a = Math.min(1, b.life/70) * (b.life < 110 && b.life % 12 < 5 ? .55 : 1);
+  g.globalAlpha = a; g.lineCap = 'butt';
+  for(const s of b.segs){
+    const nx = -s.dy, ny = s.dx, ex = s.x + s.dx*s.len, ey = s.y + s.dy*s.len;
+    g.strokeStyle = '#ffffff33'; g.lineWidth = 46;
+    g.beginPath(); g.moveTo(s.x, s.y); g.lineTo(ex, ey); g.stroke();
+    BANDS.forEach((col, i) => {
+      const o = (i - 3) * 5.8;
+      g.strokeStyle = col; g.lineWidth = 6;
+      g.beginPath(); g.moveTo(s.x + nx*o, s.y + ny*o); g.lineTo(ex + nx*o, ey + ny*o); g.stroke();
+    });
+  }
+  g.globalAlpha = 1;
+}
+
+function unicorn(){
+  g.save(); g.translate(pl.x, pl.y); g.rotate(pl.dir);
+  if(pl.inv > 0) g.globalAlpha = pl.inv % 10 < 5 ? .4 : 1;
+  const b = Math.sin(tick/(pl.dash ? 3 : 6)) * (pl.dash ? 2.2 : 1.2);
+  g.fillStyle = '#0008'; g.beginPath(); g.ellipse(-1, 5, 18, 13, 0, 0, 7); g.fill();
+  g.lineCap = 'round'; g.lineWidth = 3.4;                             // tail
+  BANDS.forEach((c, i) => {
+    g.strokeStyle = c; const a = (i - 3) * .17;
+    g.beginPath(); g.moveTo(-14, b);
+    g.lineTo(-14 - Math.cos(a)*13, b + Math.sin(a)*13); g.stroke();
+  });
+  g.fillStyle = '#fff'; g.strokeStyle = '#2a2350'; g.lineWidth = 2;
+  g.beginPath(); g.ellipse(-2, b, 16, 11, 0, 0, 7); g.fill(); g.stroke();     // body
+  g.fillStyle = '#f2eefc';
+  [[-9,-9],[-9,9],[7,-9],[7,9]].forEach(([x, y]) => {                 // hooves
+    g.beginPath(); g.ellipse(x, y + b*.5, 4, 3, 0, 0, 7); g.fill();
+  });
+  g.lineWidth = 3.2;
+  BANDS.forEach((c, i) => {                                           // mane
+    g.strokeStyle = c;
+    g.beginPath(); g.moveTo(6, b - 7.5 + i*2.5); g.lineTo(-3, b - 7.5 + i*2.5); g.stroke();
+  });
+  g.fillStyle = '#fff'; g.strokeStyle = '#2a2350';
+  g.beginPath(); g.ellipse(12, b, 8.5, 7, 0, 0, 7); g.fill(); g.stroke();     // head
+  g.beginPath(); g.moveTo(9, b - 8); g.lineTo(12, b - 4); g.lineTo(7, b - 4); g.fill();
+  g.beginPath(); g.moveTo(9, b + 8); g.lineTo(12, b + 4); g.lineTo(7, b + 4); g.fill();
+  g.fillStyle = '#ffd84d';                                            // horn
+  g.beginPath(); g.moveTo(17, b - 3.5); g.lineTo(28, b); g.lineTo(17, b + 3.5); g.fill();
+  g.fillStyle = '#222';
+  g.beginPath(); g.arc(15, b - 4.5, 1.6, 0, 7); g.fill();
+  g.beginPath(); g.arc(15, b + 4.5, 1.6, 0, 7); g.fill();
+  g.fillStyle = '#ffb0c8';
+  g.beginPath(); g.arc(19.5, b, 2, 0, 7); g.fill();
+  g.restore(); g.globalAlpha = 1;
+}
+
+function star(x, y, n, ri, ro, rot){
+  g.beginPath();
+  for(let i = 0; i < n*2; i++){
+    const a = i*Math.PI/n + rot, rr = i%2 ? ri : ro;
+    g.lineTo(x + Math.cos(a)*rr, y + Math.sin(a)*rr);
+  }
+  g.closePath(); g.fill();
+}
+
+function drawWorld(){
+  for(let r = 0; r < ROWS; r++) for(let c = 0; c < COLS; c++){   // ground
+    const t = map[r][c], x = c*TS, y = r*TS;
+    if('#X/\\fF'.includes(t)){
+      g.fillStyle = '#4a3d78'; g.fillRect(x, y, TS, TS);
+      g.fillStyle = '#6b5aa8'; g.fillRect(x + 2, y + 2, TS - 4, TS - 10);
+      g.fillStyle = '#8878c8'; g.fillRect(x + 2, y + 2, TS - 4, 4);
+    } else if(t === '~'){
+      g.fillStyle = '#1e4f96'; g.fillRect(x, y, TS, TS);
+      g.fillStyle = '#3a78c8';
+      const w = Math.sin((c + r)*.9 + tick/28) * 6;
+      g.fillRect(x + 6 + w, y + 12, 14, 3);
+      g.fillRect(x + 16 - w, y + 26, 10, 3);
+    } else {
+      g.fillStyle = (c + r) % 2 ? '#37305c' : '#3b3462';
+      g.fillRect(x, y, TS, TS);
+      g.fillStyle = '#ffffff08'; g.fillRect(x + 4, y + 4, 3, 3);
+    }
+  }
+
+  bows.forEach(drawBow);
+
+  for(let r = 0; r < ROWS; r++) for(let c = 0; c < COLS; c++){   // props, above the rainbows
+    const t = map[r][c], x = c*TS, y = r*TS, mx = x + TS/2, my = y + TS/2;
+    if(t === 'X'){                                   // cracked wall: warmer, so it reads as breakable
+      g.fillStyle = '#b0724a66'; g.fillRect(x + 2, y + 2, TS - 4, TS - 10);
+      g.fillStyle = '#d99a6a55'; g.fillRect(x + 2, y + 2, TS - 4, 4);
+      g.strokeStyle = '#2a2350'; g.lineWidth = 3; g.beginPath();
+      g.moveTo(x + 8, y); g.lineTo(x + 16, y + 16); g.lineTo(x + 6, y + 26); g.lineTo(x + 14, TS + y);
+      g.moveTo(x + 16, y + 16); g.lineTo(x + 32, y + 22); g.stroke();
+    } else if(t === '/' || t === '\\'){              // mirror
+      const d = t === '/' ? 1 : -1;
+      g.strokeStyle = '#dff3ff'; g.lineWidth = 9; g.lineCap = 'round';
+      g.beginPath(); g.moveTo(x + 7, my + d*13); g.lineTo(x + 33, my - d*13); g.stroke();
+      g.strokeStyle = '#7fd0ff'; g.lineWidth = 3;
+      g.beginPath(); g.moveTo(x + 9, my + d*11); g.lineTo(x + 31, my - d*11); g.stroke();
+    } else if(t === 'f' || t === 'F'){               // torch
+      g.fillStyle = '#3a3260'; g.fillRect(x + 12, y + 14, 16, 22);
+      g.fillStyle = t === 'F' ? '#ffe14d' : '#5c5580';
+      const s = t === 'F' ? 3 + Math.sin(tick/5)*1.6 : 0;
+      g.beginPath(); g.arc(mx, y + 13, 7 + s, 0, 7); g.fill();
+      if(t === 'F'){ g.globalAlpha = .35; g.beginPath(); g.arc(mx, y + 13, 18 + s, 0, 7); g.fill(); g.globalAlpha = 1; }
+    } else if(t === 'D'){                            // locked door
+      g.fillStyle = '#8a5a2a'; g.fillRect(x, y, TS, TS);
+      g.fillStyle = '#c98b3f'; g.fillRect(x + 4, y + 4, TS - 8, TS - 8);
+      g.fillStyle = '#5c3a18'; g.beginPath(); g.arc(mx, my, 5, 0, 7); g.fill();
+    } else if(t === 'G'){                            // gate
+      const open = gateOpen();
+      g.fillStyle = open ? '#2c2650' : '#8c8ca8';
+      for(let i = 0; i < 4; i++) g.fillRect(x + 3 + i*9, y + (open ? 0 : 2), 5, open ? 6 : TS - 4);
+    } else if(t === 'S' || t === 's'){               // crystal
+      const on = t === 's';
+      g.fillStyle = on ? '#ffe14d' : '#6d6d92';
+      star(mx, my, 4, 5, on ? 15 : 12, tick/50);
+      if(on){ g.globalAlpha = .25; star(mx, my, 4, 8, 22, -tick/40); g.globalAlpha = 1; }
+    } else if(t === 'T'){                            // the Sun Door
+      g.fillStyle = '#ffb84d'; g.globalAlpha = .3;
+      g.beginPath(); g.arc(mx, my, 26 + Math.sin(tick/15)*3, 0, 7); g.fill();
+      g.globalAlpha = 1; g.fillStyle = '#ffe14d';
+      star(mx, my, 8, 7, 19, tick/60);
+    }
+  }
+
+  if(charging){                                      // aim preview, bounces included
+    const b = cast(charge, 0);
+    g.setLineDash([7, 7]); g.lineWidth = 3; g.strokeStyle = '#ffffff77';
+    g.beginPath();
+    for(const s of b.segs){ g.moveTo(s.x, s.y); g.lineTo(s.x + s.dx*s.len, s.y + s.dy*s.len); }
+    g.stroke(); g.setLineDash([]);
+    const e = b.segs[b.segs.length - 1];
+    g.fillStyle = '#ffffffaa';
+    g.beginPath(); g.arc(e.x + e.dx*e.len, e.y + e.dy*e.len, 5, 0, 7); g.fill();
+  }
+
+  for(const e of ents){
+    if(e.pop){
+      g.globalAlpha = e.pop/12; g.fillStyle = '#ffe14d';
+      star(e.x, e.y, 6, 4, 26 - e.pop, 0); g.globalAlpha = 1;
+    }
+    if(!e.hp) continue;
+    if(e.t === 'E'){
+      const s = Math.sin(tick/8 + e.w) * 2;
+      g.fillStyle = '#0005'; g.beginPath(); g.ellipse(e.x, e.y + 8, 12, 5, 0, 0, 7); g.fill();
+      g.fillStyle = '#b04dff';
+      g.beginPath(); g.ellipse(e.x, e.y, 12 + s, 12 - s, 0, 0, 7); g.fill();
+      g.fillStyle = '#fff';
+      g.beginPath(); g.arc(e.x - 4, e.y - 2, 3, 0, 7); g.arc(e.x + 4, e.y - 2, 3, 0, 7); g.fill();
+      g.fillStyle = '#222';
+      g.beginPath(); g.arc(e.x - 4, e.y - 2, 1.4, 0, 7); g.arc(e.x + 4, e.y - 2, 1.4, 0, 7); g.fill();
+    } else if(e.t === 'K'){
+      g.fillStyle = '#ffd84d';
+      g.beginPath(); g.arc(e.x - 4, e.y, 5, 0, 7); g.fill();
+      g.fillRect(e.x, e.y - 2, 13, 4); g.fillRect(e.x + 9, e.y, 4, 6);
+    } else {
+      g.fillStyle = '#ff5470'; const b = Math.sin(tick/12);
+      g.beginPath(); g.arc(e.x - 4, e.y - 2 + b, 5, 0, 7); g.arc(e.x + 4, e.y - 2 + b, 5, 0, 7);
+      g.moveTo(e.x - 9, e.y + b); g.lineTo(e.x, e.y + 10 + b); g.lineTo(e.x + 9, e.y + b); g.fill();
+    }
+  }
+
+  unicorn();
+
+  for(const p of ps){                                // particles on top of everything
+    g.globalAlpha = Math.min(1, p.l/p.m * 1.6); g.fillStyle = p.c;
+    g.beginPath(); g.arc(p.x, p.y, p.r, 0, 7); g.fill();
+  }
+  g.globalAlpha = 1;
+}
+
+function draw(){
+  g = gw;
+  gw.setTransform(1,0,0,1,0,0);
+  gw.fillStyle = '#1a1633'; gw.fillRect(0, 0, W, H - HUD);
+  drawWorld();
+
+  g = gm;
+  gm.setTransform(1,0,0,1,0,0);
+  gm.fillStyle = '#12102a'; gm.fillRect(0, 0, W, H);
+  gm.filter = room.drain > .01 ? 'grayscale(' + (room.drain*.88).toFixed(2) + ')' : 'none';
+  gm.drawImage(oc, 0, HUD);
+  gm.filter = 'none';
+
+  // ---- HUD ----
+  for(let i = 0; i < 3; i++){
+    g.fillStyle = i < pl.hp ? '#ff5470' : '#ffffff22';
+    const x = 20 + i*30, y = 20;
+    g.beginPath(); g.arc(x - 4, y - 3, 5, 0, 7); g.arc(x + 4, y - 3, 5, 0, 7);
+    g.moveTo(x - 9, y - 1); g.lineTo(x, y + 9); g.lineTo(x + 9, y - 1); g.fill();
+  }
+  g.fillStyle = '#ffd84d'; g.font = 'bold 15px system-ui';
+  g.fillText('⚑ ' + pl.keys, 122, 27);
+  g.fillStyle = pl.cd > 0 ? '#ffffff33' : '#5ddb62';               // gallop ready lamp
+  g.beginPath(); g.arc(168, 22, 6, 0, 7); g.fill();
+  g.fillStyle = '#fff'; g.font = 'bold 17px system-ui'; g.textAlign = 'center';
+  g.fillText(room.name, W/2, 27);
+  g.textAlign = 'right'; g.fillStyle = '#ffffff88'; g.font = '11px system-ui';
+  g.fillText('WASD · hold mouse: rainbow · shift: gallop · R: restart', W - 16, 27);
+  g.textAlign = 'left';
+  if(charging){
+    g.fillStyle = '#ffffff22'; g.fillRect(186, 15, 130, 11);
+    g.fillStyle = '#ffe14d'; g.fillRect(186, 15, 130*(charge - MINLEN)/(MAXLEN - MINLEN), 11);
+  }
+  if(won){
+    g.fillStyle = '#000b'; g.fillRect(0, H/2 - 70, W, 140);
+    g.textAlign = 'center'; g.fillStyle = '#ffe14d'; g.font = 'bold 40px system-ui';
+    g.fillText('The Sun Door opens!', W/2, H/2);
+    g.fillStyle = '#fff'; g.font = '18px system-ui';
+    g.fillText('press R to ride again', W/2, H/2 + 36);
+    g.textAlign = 'left';
+  }
+}
+
+newGame();
+(function loop(){ step(); draw(); requestAnimationFrame(loop); })();
+</script>

@@ -1,0 +1,225 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Rainbow Unicorn</title>
+<style>
+  html,body{margin:0;height:100%;background:#12102a;display:grid;place-items:center;
+            font:14px/1.4 system-ui,sans-serif;color:#fff;overflow:hidden}
+  canvas{background:#2a2350;border-radius:8px;max-width:100vw;max-height:100vh;touch-action:none;cursor:crosshair}
+</style>
+<canvas id=c width=960 height=540></canvas>
+<script>
+const W = 960, H = 540;
+const cv = document.getElementById('c'), g = cv.getContext('2d');
+
+// ---------- levels ----------
+// p: solid platforms [x,y,w,h] | s: spikes | start | goal
+const LEVELS = [
+  { name: "1. Hello, Rainbow",
+    p: [[0,480,260,60],[520,480,300,60],[900,400,220,40],[1250,480,350,60]],
+    s: [], start: [60,420], goal: [1400,430] },
+  { name: "2. Up We Go",
+    p: [[0,480,220,60],[380,470,120,20],[700,400,120,20],[1000,300,140,20],[1300,440,300,100]],
+    s: [[220,510,160,30],[540,510,160,30]], start: [50,420], goal: [1420,390] },
+  { name: "3. The Long Gap",
+    p: [[0,460,300,80],[1250,460,350,80],[540,280,180,20],[1000,330,140,20]],
+    s: [[300,520,950,20]], start: [60,400], goal: [1420,410] },
+  { name: "4. Sky Garden",
+    p: [[0,470,240,70],[330,380,110,20],[640,300,110,20],[950,220,110,20],[1180,380,120,20],[1450,470,300,70]],
+    s: [[240,520,1210,20]], start: [50,410], goal: [1600,420] },
+];
+
+// ---------- state ----------
+const GRAV = .62, MOVE = .7, FRIC = .82, MAXVX = 4.4, JUMP = -11.6;
+const MAXBOWS = 3, MINLEN = 90, MAXLEN = 330;
+let lvl = 0, pl, bows, charge, charging, aim = {x:600,y:300}, cam = {x:0,y:0}, win = 0, keys = {};
+
+function load(n){
+  lvl = (n + LEVELS.length) % LEVELS.length;
+  const L = LEVELS[lvl];
+  pl = {x:L.start[0], y:L.start[1], w:26, h:30, vx:0, vy:0, ground:0, face:1};
+  bows = []; charge = 0; charging = 0; win = 0;
+  cam.x = 0; cam.y = 0;
+}
+
+// ---------- input ----------
+onkeydown = e => { keys[e.key.toLowerCase()] = 1; if(e.key === ' ') e.preventDefault(); };
+onkeyup   = e => { keys[e.key.toLowerCase()] = 0; if(e.key.toLowerCase() === 'r') load(lvl); };
+
+function toWorld(e){
+  const r = cv.getBoundingClientRect(), t = e.touches ? e.touches[0] : e;
+  aim.x = (t.clientX - r.left) / r.width  * W + cam.x;
+  aim.y = (t.clientY - r.top ) / r.height * H + cam.y;
+}
+cv.onmousemove = cv.ontouchmove  = e => { toWorld(e); e.preventDefault(); };
+cv.onmousedown = cv.ontouchstart = e => { toWorld(e); charging = 1; charge = MINLEN; e.preventDefault(); };
+onmouseup = ontouchend = () => { if(charging){ fire(); charging = 0; } };
+
+// ---------- rainbows ----------
+// A rainbow is a quadratic curve (a,b,c) sampled into one-way platform tiles.
+function curve(r, t){
+  const u = 1 - t;
+  return { x: u*u*r.a.x + 2*u*t*r.b.x + t*t*r.c.x,
+           y: u*u*r.a.y + 2*u*t*r.b.y + t*t*r.c.y };
+}
+function makeBow(len){
+  const cx = pl.x + pl.w/2, cy = pl.y + pl.h/2;
+  let dx = aim.x - cx, dy = aim.y - cy, d = Math.hypot(dx, dy) || 1;
+  dx /= d; dy /= d;
+  const a = {x:cx, y:cy}, c = {x:cx + dx*len, y:cy + dy*len};
+  const b = {x:(a.x + c.x)/2, y:(a.y + c.y)/2 - len*.55};   // arch upward
+  const r = {a, b, c, tiles:[]};
+  const steps = Math.max(14, len/6 | 0);
+  for(let i = 0; i <= steps; i++){
+    const p = curve(r, i/steps);
+    r.tiles.push({x:p.x - 9, y:p.y - 14, w:18, h:10});
+  }
+  return r;
+}
+function fire(){
+  bows.push(makeBow(charge));
+  if(bows.length > MAXBOWS) bows.shift();
+}
+
+// ---------- physics ----------
+function hit(a, b){ return a.x < b.x+b.w && a.x+a.w > b.x && a.y < b.y+b.h && a.y+a.h > b.y; }
+
+function step(){
+  const L = LEVELS[lvl];
+  if(charging) charge = Math.min(MAXLEN, charge + 5);
+
+  if(keys.a || keys.arrowleft ){ pl.vx -= MOVE; pl.face = -1; }
+  if(keys.d || keys.arrowright){ pl.vx += MOVE; pl.face =  1; }
+  if((keys.w || keys.arrowup || keys[' ']) && pl.ground){ pl.vy = JUMP; pl.ground = 0; }
+
+  pl.vx = Math.max(-MAXVX, Math.min(MAXVX, pl.vx * FRIC));
+  pl.vy = Math.min(14, pl.vy + GRAV);
+
+  // horizontal (solids only)
+  pl.x += pl.vx;
+  for(const s of L.p){
+    const b = {x:s[0], y:s[1], w:s[2], h:s[3]};
+    if(hit(pl, b)){ pl.x = pl.vx > 0 ? b.x - pl.w : b.x + b.w; pl.vx = 0; }
+  }
+  // vertical (solids + one-way rainbow tiles)
+  const wasBottom = pl.y + pl.h;
+  pl.y += pl.vy; pl.ground = 0;
+  for(const s of L.p){
+    const b = {x:s[0], y:s[1], w:s[2], h:s[3]};
+    if(hit(pl, b)){
+      if(pl.vy > 0){ pl.y = b.y - pl.h; pl.ground = 1; } else pl.y = b.y + b.h;
+      pl.vy = 0;
+    }
+  }
+  if(pl.vy >= 0) for(const r of bows) for(const t of r.tiles){
+    // 14px step-up tolerance, so you can walk up the slope of an arc
+    if(hit(pl, t) && wasBottom <= t.y + 14){ pl.y = t.y - pl.h; pl.vy = 0; pl.ground = 1; }
+  }
+
+  // hazards / bounds / goal
+  for(const s of L.s || []) if(hit(pl, {x:s[0], y:s[1], w:s[2], h:s[3]})) load(lvl);
+  if(pl.y > 900 || pl.x < -40) load(lvl);
+  if(!win && hit(pl, {x:L.goal[0]-14, y:L.goal[1]-30, w:40, h:60})) win = 1;
+  if(win && ++win > 60) load(lvl + 1);
+
+  // camera
+  cam.x += ((pl.x - W/2) - cam.x) * .1;
+  cam.y += ((pl.y - H/2 - 40) - cam.y) * .1;
+  cam.x = Math.max(0, cam.x);
+  cam.y = Math.max(-200, Math.min(120, cam.y));
+}
+
+// ---------- drawing ----------
+const BANDS = ['#ff4d4d','#ff9c3d','#ffe14d','#5ddb62','#4db6ff','#4d5dff','#a24dff'];
+
+function drawBow(r, alpha){
+  g.globalAlpha = alpha; g.lineCap = 'round';
+  BANDS.forEach((col, i) => {
+    g.strokeStyle = col; g.lineWidth = 28 - i*4;
+    g.beginPath(); g.moveTo(r.a.x, r.a.y);
+    g.quadraticCurveTo(r.b.x, r.b.y, r.c.x, r.c.y); g.stroke();
+  });
+  g.globalAlpha = 1;
+}
+
+function unicorn(x, y, f){
+  g.save(); g.translate(x + 13, y + 15); g.scale(f, 1);
+  g.fillStyle = '#fff';
+  g.beginPath(); g.ellipse(0, 3, 15, 10, 0, 0, 7); g.fill();          // body
+  g.beginPath(); g.ellipse(10, -9, 8, 7, .3, 0, 7); g.fill();         // head
+  g.fillRect(-9, 10, 4, 8); g.fillRect(4, 10, 4, 8);                  // legs
+  g.fillStyle = '#ffd84d';                                            // horn
+  g.beginPath(); g.moveTo(14, -15); g.lineTo(18, -27); g.lineTo(10, -16); g.fill();
+  g.lineWidth = 3; g.lineCap = 'round';                               // mane + tail
+  BANDS.forEach((c, i) => {
+    g.strokeStyle = c;
+    g.beginPath(); g.moveTo(6, -14 + i*2.2); g.lineTo(-4, -10 + i*2.6); g.stroke();
+    g.beginPath(); g.moveTo(-14, -1 + i*1.6); g.lineTo(-24, -6 + i*2.4); g.stroke();
+  });
+  g.fillStyle = '#222'; g.beginPath(); g.arc(13, -10, 1.6, 0, 7); g.fill();  // eye
+  g.restore();
+}
+
+function draw(){
+  const L = LEVELS[lvl];
+  g.setTransform(1,0,0,1,0,0);
+  g.fillStyle = '#2a2350'; g.fillRect(0, 0, W, H);
+  // parallax hills
+  g.fillStyle = '#372c66';
+  for(let i = 0; i < 6; i++){
+    const x = i*420 - (cam.x*.4) % 420 - 420;
+    g.beginPath(); g.arc(x, H + 150, 260, Math.PI, 0); g.fill();
+  }
+  g.fillRect(0, H - 60, W, 60);
+  g.translate(-cam.x | 0, -cam.y | 0);
+
+  for(const s of L.p){                                     // platforms
+    g.fillStyle = '#6f5bd6'; g.fillRect(s[0], s[1], s[2], s[3]);
+    g.fillStyle = '#9d8bff'; g.fillRect(s[0], s[1], s[2], 6);
+  }
+  g.fillStyle = '#ff5470';                                 // spikes
+  for(const s of L.s || []){
+    for(let x = s[0]; x < s[0]+s[2]; x += 20){
+      g.beginPath(); g.moveTo(x, s[1]+s[3]); g.lineTo(x+10, s[1]-8); g.lineTo(x+20, s[1]+s[3]); g.fill();
+    }
+  }
+  bows.forEach((r, i) => drawBow(r, i === 0 && bows.length === MAXBOWS ? .55 : 1));
+
+  if(charging){                                            // aim preview
+    g.setLineDash([8, 8]); g.strokeStyle = '#fff8'; g.lineWidth = 3;
+    const r = makeBow(charge);
+    g.beginPath(); g.moveTo(r.a.x, r.a.y); g.quadraticCurveTo(r.b.x, r.b.y, r.c.x, r.c.y); g.stroke();
+    g.setLineDash([]);
+  }
+
+  const t = Date.now()/300;                                // goal star
+  g.save(); g.translate(L.goal[0]+6, L.goal[1]); g.rotate(t*.5);
+  g.fillStyle = '#ffe14d';
+  g.beginPath();
+  for(let i = 0; i < 10; i++){
+    const a = i*Math.PI/5, rr = i%2 ? 8 : 18;
+    g.lineTo(Math.cos(a)*rr, Math.sin(a)*rr);
+  }
+  g.fill(); g.restore();
+
+  unicorn(pl.x, pl.y, pl.face);
+
+  // HUD
+  g.setTransform(1,0,0,1,0,0);
+  g.fillStyle = '#fff'; g.font = 'bold 18px system-ui';
+  g.fillText(LEVELS[lvl].name, 16, 28);
+  g.font = '13px system-ui'; g.fillStyle = '#ffffffaa';
+  g.fillText('A/D move · W jump · hold mouse to charge a rainbow, release to throw · R restart', 16, 50);
+  if(charging){
+    g.fillStyle = '#ffffff33'; g.fillRect(16, 62, 200, 10);
+    g.fillStyle = '#ffe14d';   g.fillRect(16, 62, 200 * (charge - MINLEN)/(MAXLEN - MINLEN), 10);
+  }
+  if(win){
+    g.fillStyle = '#000a'; g.fillRect(0, 220, W, 100);
+    g.fillStyle = '#ffe14d'; g.font = 'bold 44px system-ui'; g.textAlign = 'center';
+    g.fillText('Level complete!', W/2, 285); g.textAlign = 'left';
+  }
+}
+
+load(0);
+(function loop(){ step(); draw(); requestAnimationFrame(loop); })();
+</script>
