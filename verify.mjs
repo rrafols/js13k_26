@@ -31,14 +31,14 @@ function source (path) {
 
 const SCENES = [
   ['title', d => d.pump(5)],
-  ['story', d => { d.key('1', 1); d.pump(60); d.key('d'); d.pump(240) }],
+  ['story', d => { d.play('1'); d.pump(60); d.key('d'); d.pump(240) }],
   ['throw', d => {
-    d.key('1', 1); d.pump(30); d.key('d'); d.pump(90); d.key('d', 1)
+    d.play('1'); d.pump(30); d.key('d'); d.pump(90); d.key('d', 1)
     d.down(700, 300); d.pump(60); d.up(); d.pump(60)
   }],
-  ['gallop', d => { d.key('1', 1); d.pump(30); d.key('d'); d.key('shift'); d.pump(200) }],
-  ['random', d => { d.key('3', 1); d.pump(150); d.key('s'); d.pump(150) }],
-  ['rush', d => { d.key('4', 1); d.pump(200) }]
+  ['gallop', d => { d.play('1'); d.pump(30); d.key('d'); d.key('shift'); d.pump(200) }],
+  ['random', d => { d.play('3'); d.pump(150); d.key('s'); d.pump(150) }],
+  ['rush', d => { d.play('4'); d.pump(200) }]
 ]
 
 function run (js, scene) {
@@ -78,12 +78,14 @@ function run (js, scene) {
   createContext(ctx)
   runInContext(js, ctx)
 
-  scene({
+  const d = {
     pump: n => { while (n-- > 0) { const f = frame; frame = null; if (!f) return; f() } },
     key: (k, up) => (up ? ctx.onkeyup : ctx.onkeydown)({ key: k, preventDefault () {} }),
     down: (x, y) => ctx.__cv.onmousedown({ clientX: x, clientY: y, preventDefault () {} }),
     up: () => ctx.onmouseup()
-  })
+  }
+  d.play = m => { d.key(m, 1); d.pump(2); d.key('enter', 1); d.pump(2) }   // past the intro card
+  scene(d)
   return log
 }
 

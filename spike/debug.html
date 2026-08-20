@@ -1,0 +1,52 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>debug — jump to any room</title>
+<style>
+  html,body{margin:0;height:100%;background:#0e0b1e;display:grid;place-items:center;
+            font:13px system-ui;color:#fff;overflow:hidden}
+  canvas{background:#1a1633;max-width:100vw;max-height:100vh;touch-action:none;cursor:crosshair}
+  #hint{position:fixed;bottom:8px;left:12px;color:#ffffff66;font:12px system-ui}
+</style>
+<canvas id=c width=960 height=564></canvas>
+<div id=hint></div>
+  <script src="../src/core.js"></script>
+  <script src="../src/rooms.js"></script>
+  <script src="../src/generate.js"></script>
+  <script src="../src/state.js"></script>
+  <script src="../src/audio.js"></script>
+  <script src="../src/fx.js"></script>
+  <script src="../src/input.js"></script>
+  <script src="../src/tiles.js"></script>
+  <script src="../src/light.js"></script>
+  <script src="../src/storm.js"></script>
+  <script src="../src/update.js"></script>
+  <script src="../src/draw.js"></script>
+  <script src="../src/ui.js"></script>
+  <script src="../src/main.js"></script>
+<script>
+// Dev harness: boots the real game and drops you into any room with whatever
+// you need, so a dark room or the boss is one URL away instead of a playthrough.
+//   ?room=5          0 Falls 1 Key 2 Switch 3 Gallop 4 Mirror 5 Drained Vault
+//                    6 Sanctum 7 Prism Ward 8 Filter Gallery 9 Approach
+//                    10 Grotto 11 Sun Gate 12 Storm Arena
+//   ?shards=7&prism=1&hp=3     start kitted out
+//   ?mode=random&seed=1234     a generated run instead
+// [ and ] step through rooms.
+const Q = new URLSearchParams(location.search);
+const go = n => {
+  n = (n + SRC.length) % SRC.length;
+  enter(n, 60, 262);
+  hint.textContent = `room ${n} — ${SRC[n].name}   drain ${room.drain}   [ ] to move   (dev page, not the game)`;
+};
+start(Q.get('mode') || 'story');
+if (Q.get('seed')) { seed = +Q.get('seed'); DUN = gen(seed, 7 + seed % 4); shardGoal = DUN.goal; newGame(); }
+pl.shards = +(Q.get('shards') ?? 0);
+pl.prism = +(Q.get('prism') ?? 0);
+pl.hp = +(Q.get('hp') ?? 3);
+let cur = +(Q.get('room') ?? 5);   // 'at' is the game's tile lookup
+go(cur);
+addEventListener('keydown', e => {
+  if (e.key === '[') go(--cur);
+  if (e.key === ']') go(++cur);
+});
+</script>

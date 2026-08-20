@@ -1,0 +1,200 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>iso + darkness spike</title>
+<style>
+  html,body{margin:0;height:100%;background:#08060f;display:grid;place-items:center;
+            font:13px system-ui;color:#fff;overflow:hidden}
+  canvas{max-width:100vw;max-height:100vh}
+</style>
+<canvas id=c width=960 height=564></canvas>
+<script src="../src/rooms.js"></script>
+<script>
+// Spike: does the dungeon read better as 2:1 isometric with extruded walls,
+// lit only by the rainbow you throw? Grid logic untouched -- this is purely a
+// projection of the same 24x13 map the game already simulates.
+const P = new URLSearchParams(location.search);
+const ROOM  = +(P.get('room')  ?? 3);
+const DARK  = +(P.get('dark')  ?? 1);
+const WALL  = +(P.get('wall')  ?? 22);
+const HW    = +(P.get('hw')    ?? 26), HH = HW / 2;
+const BEAM  = P.get('beam') !== '0';
+
+const COLS = 24, ROWS = 13;
+const cv = document.getElementById('c'), g = cv.getContext('2d');
+const map = SRC[ROOM].m.map(r => r.split(''));
+const at = (c, r) => (c < 0 || r < 0 || c >= COLS || r >= ROWS) ? '#' : map[r][c];
+const solid = t => '#XDfF/\\>rgbOqMNmn'.includes(t);
+
+// cam=1 centres on the unicorn instead of fitting the whole room, which is
+// what you want once darkness means you cannot see the far side anyway.
+const CAM = +(P.get('cam') ?? 0);
+const H0 = (P.get('hero') || '3,6').split(',').map(Number);
+const OX = CAM ? cv.width / 2 - (H0[0] - H0[1]) * HW : cv.width / 2 - (COLS - ROWS) * HW / 2;
+const OY = CAM ? cv.height / 2 - (H0[0] + H0[1]) * HW / 2 : 70;
+const px = (c, r) => [OX + (c - r) * HW, OY + (c + r) * HH];
+
+/* ---------------------------------------------------------------- light */
+// One value per tile. The beam marches the grid and stops at anything solid,
+// which is what makes walls cast shadows: tiles behind them never get lit.
+const light = new Float32Array(COLS * ROWS);
+const seen  = new Float32Array(COLS * ROWS);        // what your paint remembers
+const AMB = DARK ? +(P.get('amb') ?? .26) : 1;
+const MEM = +(P.get('mem') ?? .34);
+
+function ray(c0, r0, dx, dy, reach, power){
+  let x = c0 + .5, y = r0 + .5;
+  for (let i = 0; i < reach * 8; i++) {
+    x += dx / 8; y += dy / 8;
+    const c = x | 0, r = y | 0;
+    if (c < 0 || r < 0 || c >= COLS || r >= ROWS) return;
+    const d = Math.hypot(x - c0 - .5, y - r0 - .5);
+    const f = power * Math.max(0, 1 - d / reach);
+    const i0 = r * COLS + c;
+    if (light[i0] < f) light[i0] = f;
+    if (solid(at(c, r))) return;                    // shadow starts here
+  }
+}
+/** A point light is just rays in every direction. */
+function lamp(c0, r0, reach, power){
+  for (let a = 0; a < 64; a++) ray(c0, r0, Math.cos(a / 64 * 6.283), Math.sin(a / 64 * 6.283), reach, power);
+}
+
+// An earlier throw, kept only as memory: the tiles it painted stay faintly
+// visible after its light is gone. The game already stores exactly this in
+// room.paint, so the map you carry is the map you painted.
+const HERO = (P.get('hero') || '3,6').split(',').map(Number);
+if (DARK) {
+  const before = light.slice();
+  for (let o = -1; o <= 1; o++) ray(HERO[0], HERO[1], .55, .84 + o * .05, 9, 1);
+  for (let i = 0; i < light.length; i++) { seen[i] = Math.min(MEM, light[i]); light[i] = before[i]; }
+}
+
+lamp(HERO[0], HERO[1], 3.4, .55);
+for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++)
+  if (at(c, r) === 'F') lamp(c, r, 6, .9);
+
+const beam = { a: HERO, dir: [1, -0.34], len: 11 };
+if (BEAM) {
+  for (let o = -1; o <= 1; o++)                     // a little width to the light
+    ray(beam.a[0], beam.a[1], beam.dir[0], beam.dir[1] + o * .06, beam.len, 1);
+  lamp(beam.a[0] + beam.dir[0] * 6 | 0, beam.a[1] + beam.dir[1] * 6 | 0, 4, .5);
+}
+
+/* --------------------------------------------------------------- shading */
+const hex = h => [1, 3, 5].map(i => parseInt(h.slice(i, i + 2), 16));
+const shade = (h, b, tint) => {
+  const [r, gr, bl] = hex(h);
+  const t = tint || [1, 1, 1];
+  const f = v => Math.min(255, Math.round(v * b));
+  return `rgb(${f(r * t[0])},${f(gr * t[1])},${f(bl * t[2])})`;
+};
+const bright = (c, r) => Math.min(1.25, AMB + light[r * COLS + c] + seen[r * COLS + c]);
+
+/* -------------------------------------------------------------- drawing */
+function diamond(x, y, w, h){
+  g.beginPath();
+  g.moveTo(x, y - h); g.lineTo(x + w, y); g.lineTo(x, y + h); g.lineTo(x - w, y);
+  g.closePath(); g.fill();
+}
+function cube(x, y, h, top, side, b){
+  g.fillStyle = shade(side, b * .62); // left face
+  g.beginPath();
+  g.moveTo(x - HW, y - h); g.lineTo(x, y - h + HH); g.lineTo(x, y + HH); g.lineTo(x - HW, y);
+  g.closePath(); g.fill();
+  g.fillStyle = shade(side, b * .44); // right face
+  g.beginPath();
+  g.moveTo(x + HW, y - h); g.lineTo(x, y - h + HH); g.lineTo(x, y + HH); g.lineTo(x + HW, y);
+  g.closePath(); g.fill();
+  g.fillStyle = shade(top, b);
+  diamond(x, y - h, HW, HH);
+}
+
+g.fillStyle = '#08060f';
+g.fillRect(0, 0, cv.width, cv.height);
+
+// Row major is a valid painter order here: both neighbours that can occlude a
+// tile (c+1,r) and (c,r+1) are drawn after it.
+for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++) {
+  const t = at(c, r), [x, y] = px(c, r), b = bright(c, r);
+  if (t === '#' || t === 'X') cube(x, y, WALL, t === 'X' ? '#b0724a' : '#6b5aa8', '#4a3d78', b);
+  else if (t === 'O') cube(x, y, WALL * .8, '#8878c8', '#5b4d94', b);
+  else if ('MNmn'.includes(t)) cube(x, y, WALL * .5, '#ffd84d', '#8a5a2a', b);
+  else if (t === '^') cube(x, y, WALL * .55, '#7d6cc0', '#3a3160', b);
+  else if (t === '~') { g.fillStyle = shade('#1e4f96', b * 1.1); diamond(x, y, HW, HH); }
+  else { g.fillStyle = shade((c + r) % 2 ? '#37305c' : '#3b3462', b); diamond(x, y, HW, HH); }
+
+  if (t === 'q') { g.fillStyle = shade('#c98b3f', b); g.beginPath(); g.ellipse(x, y - 8, 9, 11, 0, 0, 7); g.fill(); }
+  if (t === '/' || t === '\\') {
+    g.strokeStyle = shade('#dff3ff', Math.max(b, .85)); g.lineWidth = 6; g.lineCap = 'round';
+    const d = t === '/' ? 1 : -1;
+    g.beginPath(); g.moveTo(x - HW * .5, y - 14 + d * 6); g.lineTo(x + HW * .5, y - 14 - d * 6); g.stroke();
+  }
+  if (t === 'f' || t === 'F') {
+    g.fillStyle = shade('#3a3260', b); g.fillRect(x - 4, y - 26, 8, 20);
+    g.fillStyle = t === 'F' ? '#ffe14d' : shade('#5c5580', b);
+    g.beginPath(); g.arc(x, y - 30, t === 'F' ? 8 : 5, 0, 7); g.fill();
+  }
+  if (t >= '1' && t <= '7') {
+    const C = ['#666','#ff4d5e','#5ddb62','#ffe14d','#4db6ff','#ff5ef0','#4de1d5','#fff'][+t];
+    g.fillStyle = shade(C, Math.max(b, .8));
+    g.beginPath(); g.moveTo(x, y - 34); g.lineTo(x + 9, y - 16); g.lineTo(x, y - 4); g.lineTo(x - 9, y - 16); g.fill();
+  }
+}
+
+/* ------------------------------------------------------- soft light pass */
+// Per-tile light alone looks blocky; a couple of radial gradients over the
+// top round it off without changing what is actually visible.
+function glow(c, r, rad, alpha, col){
+  const [x, y] = px(c, r);
+  const gr = g.createRadialGradient(x, y - 8, 0, x, y - 8, rad);
+  gr.addColorStop(0, col.replace(')', `,${alpha})`).replace('rgb', 'rgba'));
+  gr.addColorStop(1, col.replace(')', ',0)').replace('rgb', 'rgba'));
+  g.fillStyle = gr;
+  g.fillRect(x - rad, y - rad - 8, rad * 2, rad * 2);
+}
+if (DARK) {
+  g.globalCompositeOperation = 'lighter';
+  glow(HERO[0], HERO[1], 120, .18, 'rgb(180,190,255)');
+  if (BEAM) for (let t = 1; t <= 9; t += 2)
+    glow(HERO[0] + beam.dir[0] * t, HERO[1] + beam.dir[1] * t, 110, .13, 'rgb(200,180,255)');
+  for (let r = 0; r < ROWS; r++) for (let c = 0; c < COLS; c++)
+    if (at(c, r) === 'F') glow(c, r, 150, .22, 'rgb(255,170,80)');
+  g.globalCompositeOperation = 'source-over';
+}
+
+/* ------------------------------------------------------------ the beam */
+const BANDS = ['#ff4d5e','#ff9c3d','#ffe14d','#5ddb62','#4db6ff','#5a5aff','#b04dff'];
+if (BEAM) {
+  const [ax, ay] = px(beam.a[0], beam.a[1]);
+  const [bx, by] = px(beam.a[0] + beam.dir[0] * beam.len, beam.a[1] + beam.dir[1] * beam.len);
+  g.lineCap = 'butt';
+  g.strokeStyle = '#ffffff22'; g.lineWidth = 34;
+  g.beginPath(); g.moveTo(ax, ay - 14); g.lineTo(bx, by - 14); g.stroke();
+  BANDS.forEach((col, i) => {
+    g.strokeStyle = col; g.lineWidth = 4;
+    const o = (i - 3) * 4;
+    g.beginPath(); g.moveTo(ax, ay - 14 + o); g.lineTo(bx, by - 14 + o); g.stroke();
+  });
+}
+
+/* --------------------------------------------------------- the unicorn */
+{
+  const [x, y] = px(HERO[0], HERO[1]);
+  g.fillStyle = '#00000066';
+  diamond(x, y, HW * .5, HH * .5);
+  g.fillStyle = '#fff';
+  g.beginPath(); g.ellipse(x, y - 18, 15, 10, 0, 0, 7); g.fill();
+  g.beginPath(); g.ellipse(x + 11, y - 26, 7, 6, 0, 0, 7); g.fill();
+  g.fillStyle = '#ffd84d';
+  g.beginPath(); g.moveTo(x + 16, y - 30); g.lineTo(x + 26, y - 34); g.lineTo(x + 16, y - 24); g.fill();
+  g.lineWidth = 2.6; g.lineCap = 'round';
+  BANDS.forEach((c, i) => {
+    g.strokeStyle = c;
+    g.beginPath(); g.moveTo(x + 4, y - 30 + i * 2.2); g.lineTo(x - 4, y - 28 + i * 2.4); g.stroke();
+    g.beginPath(); g.moveTo(x - 13, y - 22 + i * 1.6); g.lineTo(x - 24, y - 26 + i * 2.2); g.stroke();
+  });
+}
+
+g.fillStyle = '#ffffff99'; g.font = '12px system-ui';
+g.fillText(`${SRC[ROOM].name}   iso ${HW * 2}x${HW}   wall ${WALL}   ${DARK ? 'dark' : 'flat'}`, 14, cv.height - 14);
+</script>

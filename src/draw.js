@@ -4,13 +4,14 @@ function drawBow(b){
   g.globalAlpha = a; g.lineCap = 'butt';
   for(const p of b.parts) for(const s of p.segs){
     const nx = -s.dy, ny = s.dx, ex = s.x + s.dx*s.len, ey = s.y + s.dy*s.len;
-    g.strokeStyle = '#ffffff33'; g.lineWidth = 46;
+    const white = p.col === 7;                                       // hue: all seven, or one
+    const slim = p.thin || !white;                                   // refracted light is thinner
+    g.strokeStyle = '#ffffff33'; g.lineWidth = slim ? 24 : 46;
     g.beginPath(); g.moveTo(s.x, s.y); g.lineTo(ex, ey); g.stroke();
-    const white = p.col === 7;
     BANDS.forEach((col, i) => {
-      const o = (i - 3) * 5.8;
+      const o = (i - 3) * (slim ? 3.1 : 5.8);
       g.globalAlpha = a * (white ? 1 : .5 + Math.abs(3 - i)/6);      // banded, in its own hue
-      g.strokeStyle = white ? col : MASKC[p.col]; g.lineWidth = 6;
+      g.strokeStyle = white ? col : MASKC[p.col]; g.lineWidth = slim ? 3.4 : 6;
       g.beginPath(); g.moveTo(s.x + nx*o, s.y + ny*o); g.lineTo(ex + nx*o, ey + ny*o); g.stroke();
     });
   }
@@ -59,6 +60,18 @@ function unicorn(){
 
 const circ = (x, y, r) => { g.beginPath(); g.arc(x, y, r, 0, 7); g.fill(); };
 const ell = (x, y, a, b) => { g.beginPath(); g.ellipse(x, y, a, b, 0, 0, 7); g.fill(); };
+// Every colour in this game is also a channel mask, so it can be spelled out
+// as three dots: red, green, blue, filled if present. White is all three.
+function pips(x, y, m){
+  g.fillStyle = '#0b0918cc';
+  g.fillRect(x - 14, y - 6, 28, 12);                 // a plate, so they read on any tile
+  for(let i = 0; i < 3; i++){
+    const on = (m >> i) & 1;
+    g.fillStyle = on ? '#fff' : '#0b0918';
+    circ(x - 7 + i*7, y, 3.2);
+    if(!on){ g.strokeStyle = '#ffffff66'; g.lineWidth = 1.4; g.beginPath(); g.arc(x - 7 + i*7, y, 3.2, 0, 7); g.stroke(); }
+  }
+}
 function star(x, y, n, ri, ro, rot){
   g.beginPath();
   for(let i = 0; i < n*2; i++){
@@ -68,10 +81,57 @@ function star(x, y, n, ri, ro, rot){
   g.closePath(); g.fill();
 }
 
+// ---------- darkness ----------
+// A room the storm drank is dark as well as grey, and your rainbow is the lamp.
+// Nothing here casts a shadow by hand: cast() already stops a beam at the first
+// solid tile and records every tile it entered, so the tiles behind a wall are
+// simply never in that set. What you have already painted stays faintly lit,
+// which turns room.paint into the map you carry.
+const LMAP = new Float32Array(COLS*ROWS);
+// 1 in a room the storm never touched; in a dark room, how lit that spot is.
+const litAt = (x, y) => room.drain > .02 ? LMAP[(y/TS | 0)*COLS + (x/TS | 0)] : 1;
+const inDark = e => room.drain > .02 && litAt(e.x, e.y) < .45;
+function darkness(){
+  const d = room.drain;
+  if(d < .02) return;
+  LMAP.fill(0);
+  const put = (c, r, v) => {
+    if(c >= 0 && r >= 0 && c < COLS && r < ROWS && LMAP[r*COLS + c] < v) LMAP[r*COLS + c] = v;
+  };
+  const lamp = (c, r, rad, p) => {                  // a soft pool of light
+    for(let y = -rad; y <= rad; y++) for(let x = -rad; x <= rad; x++){
+      const f = 1 - Math.hypot(x, y)/rad;
+      if(f > 0) put(c + x, r + y, p*f);
+    }
+  };
+  room.paint.forEach((m, id) => {                   // memory of your own light
+    const [c, r] = id.split(',');
+    put(+c, +r, .3);
+  });
+  for(const b of bows) for(const q of b.parts) for(const id of q.lit){
+    const [c, r] = id.split(',');
+    put(+c, +r, 1);                                 // line of sight, for free
+    lamp(+c, +r, 2, .55);
+  }
+  for(let r = 0; r < ROWS; r++) for(let c = 0; c < COLS; c++)
+    if(map[r][c] === 'F') lamp(c, r, 5, 1);         // torches earn their keep
+  lamp(pl.x/TS | 0, pl.y/TS | 0, 3, .8);
+  for(const e of ents){
+    if(!e.hp) continue;
+    if(e.t === 'L' || e.t === 'B') lamp(e.x/TS | 0, e.y/TS | 0, 4, .5);
+    else if('KHRP'.includes(e.t)) lamp(e.x/TS | 0, e.y/TS | 0, 2, .5);   // treasure glimmers
+  }
+
+  for(let r = 0; r < ROWS; r++) for(let c = 0; c < COLS; c++){
+    const a = (1 - Math.min(1, .22 + LMAP[r*COLS + c])) * d;
+    if(a > .02){ g.fillStyle = 'rgba(6,4,18,' + a.toFixed(2) + ')'; g.fillRect(c*TS, r*TS, TS, TS); }
+  }
+}
+
 function drawWorld(){
   for(let r = 0; r < ROWS; r++) for(let c = 0; c < COLS; c++){       // ground
     const t = map[r][c], x = c*TS, y = r*TS;
-    if('#X/\\fF>rgb'.includes(t)){
+    if('#X/\\fF>rgb+'.includes(t)){
       g.fillStyle = '#4a3d78'; g.fillRect(x, y, TS, TS);
       g.fillStyle = '#6b5aa8'; g.fillRect(x + 2, y + 2, TS - 4, TS - 10);
       g.fillStyle = '#8878c8'; g.fillRect(x + 2, y + 2, TS - 4, 4);
@@ -111,12 +171,27 @@ function drawWorld(){
       g.strokeStyle = '#2a2350'; g.lineWidth = 3; g.beginPath();
       g.moveTo(x + 8, y); g.lineTo(x + 16, y + 16); g.lineTo(x + 6, y + 26); g.lineTo(x + 14, TS + y);
       g.moveTo(x + 16, y + 16); g.lineTo(x + 32, y + 22); g.stroke();
-    } else if(t === '/' || t === '\\'){
-      const d = t === '/' ? 1 : -1;
+    } else if('/\\()'.includes(t)){
+      if(t === '(' || t === ')'){                    // sledge under a movable mirror
+        g.fillStyle = '#4a3d78'; g.fillRect(x + 3, y + 3, TS - 6, TS - 6);
+        g.fillStyle = '#5b4d94'; g.fillRect(x + 6, y + 6, TS - 12, TS - 12);
+      }
+      const d = t === '/' || t === '(' ? 1 : -1;
       g.strokeStyle = '#dff3ff'; g.lineWidth = 9; g.lineCap = 'round';
       g.beginPath(); g.moveTo(x + 7, my + d*13); g.lineTo(x + 33, my - d*13); g.stroke();
       g.strokeStyle = '#7fd0ff'; g.lineWidth = 3;
       g.beginPath(); g.moveTo(x + 9, my + d*11); g.lineTo(x + 31, my - d*11); g.stroke();
+    } else if(t === '+'){                            // lens
+      g.fillStyle = '#dff3ff'; g.globalAlpha = .18;
+      circ(mx, my, 17 + Math.sin(tick/22)*1.5); g.globalAlpha = 1;
+      g.strokeStyle = '#8fd8ff'; g.lineWidth = 3;
+      g.beginPath();
+      for(let i = 0; i < 6; i++){
+        const A = i*1.047 + tick/300;
+        g.lineTo(mx + Math.cos(A)*13, my + Math.sin(A)*13);
+      }
+      g.closePath(); g.stroke();
+      g.fillStyle = '#eaf7ff'; circ(mx, my, 5);
     } else if(t === 'f' || t === 'F'){
       g.fillStyle = '#3a3260'; g.fillRect(x + 12, y + 14, 16, 22);
       g.fillStyle = t === 'F' ? '#ffe14d' : '#5c5580';
@@ -157,6 +232,7 @@ function drawWorld(){
       }
     } else if(t >= '1' && t <= '7'){                 // crystal: wants exactly this colour
       const on = room.lit.has(c + ',' + r), col = MASKC[+t];
+      if(cb) pips(mx, my + 16, +t);
       g.fillStyle = on ? col : '#6d6d92';
       star(mx, my, 4, 5, on ? 15 : 12, tick/50);
       if(on){ g.globalAlpha = .3; g.fillStyle = col; star(mx, my, 4, 8, 22, -tick/40); g.globalAlpha = 1; }
@@ -170,6 +246,7 @@ function drawWorld(){
       g.globalAlpha = .8; g.fillStyle = col; g.fillRect(x + 3, y + 3, TS - 6, TS - 6); g.globalAlpha = 1;
       g.strokeStyle = '#ffffff77'; g.lineWidth = 2; g.strokeRect(x + 3, y + 3, TS - 6, TS - 6);
       g.fillStyle = '#ffffff55'; g.fillRect(x + 7, y + 7, 8, TS - 14);
+      if(cb) pips(mx, my, t === 'r' ? 1 : t === 'g' ? 2 : 4);
     } else if(t === 'T'){
       g.fillStyle = '#ffb84d'; g.globalAlpha = .3;
       circ(mx, my, 26 + Math.sin(tick/15)*3);
@@ -191,6 +268,7 @@ function drawWorld(){
       circ(e.x + e.dx*e.len, e.y + e.dy*e.len, 4);
     }
     g.setLineDash([]);
+    if(cb) pips(pl.x, pl.y + 34, (7 & ~pl.stolen) || 7);
     const f = (charge - MINLEN)/(MAXLEN - MINLEN);
     g.strokeStyle = pl.prism && f > .87 ? '#dff3ff' : '#ffe14d'; g.lineWidth = 4;
     g.beginPath(); g.arc(pl.x, pl.y, 24, -1.57, -1.57 + f*6.283); g.stroke();
@@ -343,6 +421,7 @@ function drawWorld(){
   }
 
   unicorn();
+  darkness();
 
   for(const p of ps){
     g.globalAlpha = Math.min(1, p.l/p.m * 1.6); g.fillStyle = p.c;
@@ -377,7 +456,7 @@ function draw(){
   g = gm;
   gm.setTransform(1,0,0,1,0,0);
   gm.fillStyle = '#12102a'; gm.fillRect(0, 0, W, H);
-  gm.filter = room.drain > .01 ? 'grayscale(' + (room.drain*.88).toFixed(2) + ')' : 'none';
+  gm.filter = room.drain > .01 ? 'grayscale(' + (room.drain*.6).toFixed(2) + ')' : 'none';
   gm.drawImage(oc, (Math.random() - .5)*shake, HUD + (Math.random() - .5)*shake);
   gm.filter = 'none';
   minimap();

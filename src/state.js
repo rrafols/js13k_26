@@ -1,5 +1,5 @@
 // ---------- state ----------
-const SPD = 2.7, MINLEN = 80, MAXLEN = 280, MAXBOWS = 3, BOWLIFE = 420;
+const SPD = 2.7, MINLEN = 80, MAXLEN = 280, MAXBOWS = 3, BOWLIFE = 420, LENS = 200;
 const DASH = 13, DSPD = 6.6, DCD = 34;
 let shardGoal = 7;
 const BANDS = ['#ff4d5e','#ff9c3d','#ffe14d','#5ddb62','#4db6ff','#5a5aff','#b04dff'];
@@ -9,10 +9,10 @@ const BANDS = ['#ff4d5e','#ff9c3d','#ffe14d','#5ddb62','#4db6ff','#5a5aff','#b04
 const MASKC = ['#666','#ff4d5e','#5ddb62','#ffe14d','#4db6ff','#ff5ef0','#4de1d5','#fff'];
 let rooms, room, map, ents, bows, bridged, ramped, ps, pl, aim, charge, charging, won, shake = 0, tick = 0, keys = {};
 
-let DUN = SRC, scene = 'title', mode = 'story', seed = 0, runF = 0, best = {}, pick = 0;
+let DUN = SRC, scene = 'title', mode = 'story', seed = 0, runF = 0, best = {}, pick = 0, cb = 0, endWin = 0;
 const daily = () => { const d = new Date(); return d.getFullYear()*1e4 + (d.getMonth() + 1)*100 + d.getDate(); };
 const bestKey = () => mode === 'daily' ? 'daily' + seed : mode;
-function loadBest(){ try { best = JSON.parse(localStorage.ru13 || '{}'); } catch(e){ best = {}; } }
+function loadBest(){ try { best = JSON.parse(localStorage.ru13 || '{}'); } catch(e){ best = {}; } cb = best.cb || 0; }
 function saveBest(k, v){ try { best[k] = v; localStorage.ru13 = JSON.stringify(best); } catch(e){} }
 const clock = f => (f/3600 | 0) + ':' + ('0' + (f/60 % 60 | 0)).slice(-2);
 const MODES = ['story','daily','random','rush'];
@@ -25,7 +25,7 @@ function start(m){
     DUN = gen(seed, 7 + seed % 4);
     shardGoal = DUN.goal;
   }
-  scene = 'play'; newGame();
+  scene = 'intro'; newGame();
   if(m === 'rush') pl.prism = 1;
 }
 function newGame(){

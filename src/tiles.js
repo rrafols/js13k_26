@@ -16,7 +16,7 @@ function gateOpen(){                                 // every crystal lit, every
 
 function solid(x, y, z){
   const c = x/TS | 0, r = y/TS | 0, t = at(c, r);
-  if('#XDfF/\\>rgbOqMNmn'.includes(t)) return 1;
+  if('#XDfF/\\()>rgb+OqMNmn'.includes(t)) return 1;
   if(t === '^') return z || ramped.has(c + ',' + r) ? 0 : 1;   // cliff unless you ramp it
   if(t === 'G') return gateOpen() ? 0 : 1;
   if(t === 'Y') return pl.shards >= shardGoal ? 0 : 1;

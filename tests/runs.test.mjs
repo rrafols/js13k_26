@@ -117,7 +117,7 @@ T('beating it returns the colour', th.hp<=0 && a.pl.stolen===0);
 
 // ---------- 5. modes, clock, saves ----------
 a.start('story');
-T('story mode uses the hand built isles', a.DUN===a.SRC && a.shardGoal===7 && a.scene==='play');
+T('story mode uses the hand built isles', a.DUN===a.SRC && a.shardGoal===7 && a.scene==='intro');
 a.start('random');
 T('random mode generates', a.DUN!==a.SRC && a.DUN.length>6 && a.shardGoal===a.DUN.goal);
 a.start('rush');
@@ -138,4 +138,38 @@ a.start('story'); s(60); a.pl.shards=7; a.enter(12,60,262);
 T('a slower run does not overwrite it', a.best.story===first);
 a.scene='title'; a.title();
 T('title screen renders', true);
+// ---------- light-reactive enemies ----------
+a.newGame(); a.enter(5, 60, 262);                 // Drained Vault: dark
+const slime = { t:'E', x:mid(3), y:mid(9), hp:1, w:0 };
+a.ents.push(slime);
+a.draw();                                          // fills the light map
+a.pl.x = mid(3); a.pl.y = mid(9) - 30; a.pl.dir = 1.5708; a.pl.cd = 0;
+s(6, { shift:1 });
+T('a gallop cannot kill what the dark hides', slime.hp === 1);
+shoot(1, 9, 8, 9, 280); a.draw();                  // light that corner
+slime.x = mid(3); slime.y = mid(9);
+a.pl.x = mid(3); a.pl.y = mid(9) - 30; a.pl.dir = 1.5708; a.pl.cd = 0;
+s(6, { shift:1 });
+T('in your light it can be run down', slime.hp === 0);
+a.newGame(); a.enter(3, 60, 262);                 // a room the storm never drank
+const bright = a.ents.find(e => e.t === 'E');
+bright.x = a.pl.x + 30; bright.y = a.pl.y; a.pl.dir = 0; a.pl.cd = 0;
+s(6, { shift:1 });
+T('a lit room behaves exactly as before', bright.hp === 0);
+
+// ---------- pushable mirrors ----------
+a.newGame(); a.enter(4, 60, 262);                 // Mirror Hall has one at 11,3
+T('the movable mirror is where it belongs', a.map[3][11] === ')');
+T('and it is solid', a.solid(mid(11), mid(3)) === 1);
+a.pl.x = mid(9); a.pl.y = mid(3); a.pl.dir = 0; a.pl.push = 0;
+s(30, { d:1 });
+T('you can shove it along', a.map[3][11] === '.' && a.map[3].indexOf(')') > 11);
+const mc = a.map[3].indexOf(')');
+shoot(mc, 6, mc, 4, 200);                        // fire north into it
+const b0 = a.bows[a.bows.length - 1].parts[0];
+T('and it still bends the beam once moved', b0.segs.length > 1);
+
+// ---------- colourblind pips ----------
+T('pips are off until asked for', a.cb === 0 || a.cb === false);
+
 done();

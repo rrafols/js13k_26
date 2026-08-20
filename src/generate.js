@@ -45,6 +45,17 @@ function gen(seed, len){
       box(m, a, 2, a + 2, 2, '#'); m[1][a] = '7'; m[1][a + 3] = '\\';
       return 1;
     }
+    else if(k === 'sledge'){                         // shove the mirror into the lane
+      const a = 4 + ri(4);
+      box(m, a, 2, a + 2, 2, '#'); m[1][a] = '7';
+      m[3][a + 3] = ')';                             // push it north twice to line it up
+      return 1;
+    }
+    else if(k === 'lens'){                           // reach past the usual range
+      const r0 = 2 + ri(3)*3;
+      m[r0][10] = '+'; m[r0][20] = '7';
+      return 1;
+    }
     else if(k === 'prism'){ m[6][12] = '>'; m[5][16] = '1'; m[6][16] = '2'; m[7][16] = '4'; return 1; }
     else if(k === 'filter'){
       const f = pick(['r','g','b']);
@@ -62,7 +73,7 @@ function gen(seed, len){
     return 0;
   };
   const pool = ['water','water','crack','crystals','torch','mirror','prism','filter',
-                'plateau','blocks','combat'];
+                'lens','sledge','plateau','blocks','combat'];
   const dun = [];
   for(let i = 0; i < len; i++){
     const m = blankRoom(), links = {}, last = i === len - 1;

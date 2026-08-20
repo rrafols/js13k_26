@@ -13,6 +13,13 @@ window.onkeyup = e => {
     if('1234'.includes(k)) start(MODES[+k - 1]);
     return;
   }
+  if(k === 'c'){ cb = !cb; saveBest('cb', cb ? 1 : 0); }
+  if(scene === 'intro'){ scene = 'play'; return; }
+  if(scene === 'end'){
+    if(k === 'r') start(mode);
+    if(k === 'escape' || k === 'enter' || k === ' ') scene = 'title';
+    return;
+  }
   if(k === 'r') newGame();
   if(k === 'm') mute = !mute;
   if(k === 'escape'){ scene = 'title'; charging = 0; }
@@ -30,6 +37,8 @@ cv.onmousedown = cv.ontouchstart = e => {
     if(i >= 0 && i < 4) start(MODES[i]);
     return;
   }
+  if(scene === 'intro'){ scene = 'play'; return; }
+  if(scene === 'end'){ scene = 'title'; return; }
   charging = 1; charge = MINLEN;
 };
 window.onmouseup = window.ontouchend = () => { if(charging){ fire(); charging = 0; } };

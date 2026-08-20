@@ -45,6 +45,7 @@ export function smoke (js, { frames = 400 } = {}) {
 
   const pump = n => { while (n-- > 0) { const f = frame; frame = null; if (!f) return 0; f() } return 1 }
   const key = (k, up) => (up ? ctx.onkeyup : ctx.onkeydown)({ key: k, preventDefault () {} })
+  const play = m => { key(m, 1); pump(2); key('enter', 1); pump(2) }   // mode, then past the intro
 
   try {
     stage.at = 'parse'
@@ -56,7 +57,7 @@ export function smoke (js, { frames = 400 } = {}) {
 
     // menu -> story, walk, charge and throw, gallop, then the generator
     stage.at = 'story'
-    key('1', 1); pump(30)
+    play('1'); pump(30)
     stage.at = 'walk'
     key('d'); pump(60); key('d', 1)
     stage.at = 'throw'
@@ -65,9 +66,9 @@ export function smoke (js, { frames = 400 } = {}) {
     stage.at = 'gallop'
     key('d'); key('shift'); pump(60); key('shift', 1); key('d', 1)
     stage.at = 'generated run'
-    key('escape', 1); pump(2); key('3', 1); pump(frames)
+    key('escape', 1); pump(2); play('3'); pump(frames)
     stage.at = 'boss rush'
-    key('escape', 1); pump(2); key('4', 1); pump(120)
+    key('escape', 1); pump(2); play('4'); pump(120)
   } catch (error) {
     return { ok: false, stage: stage.at, error }
   }

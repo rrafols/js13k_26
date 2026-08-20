@@ -4,7 +4,7 @@ function hurt(n){
   pl.hp -= n; pl.inv = 70; shake = Math.max(shake, 8);
   part(pl.x, pl.y, 16, '#ff5470', 3.4, 30);
   snd(220, .3, 'square', .07, 60);
-  if(pl.hp <= 0){ tune([400, 300, 200, 120], 130, 'sawtooth', .07); newGame(); }
+  if(pl.hp <= 0){ tune([400, 300, 200, 120], 130, 'sawtooth', .07); scene = 'end'; endWin = 0; }
 }
 function step(){
   tick++;
@@ -14,7 +14,7 @@ function step(){
     p.x += p.vx; p.y += p.vy; p.vx *= .93; p.vy *= .93;
     if(--p.l <= 0) ps.splice(i, 1);
   }
-  if(won){ won++; return; }
+  if(won){ if(++won > 96){ scene = 'end'; endWin = 1; } return; }
   runF++;
   if(charging) charge = Math.min(MAXLEN, charge + 4);
   if(pl.inv > 0) pl.inv--;
@@ -46,17 +46,19 @@ function step(){
       if(pl.push > 0) pl.push--;
       else if(!vx !== !vy){                          // shove a block, straight on only
         const fc = (pl.x + vx*(pl.r + 12))/TS | 0, fr = (pl.y + vy*(pl.r + 12))/TS | 0;
-        if(at(fc, fr) === 'O'){
+        const pt = at(fc, fr);
+        if(pt === 'O' || pt === '(' || pt === ')'){
           const tc = fc + vx, tr = fr + vy, tt = at(tc, tr);
-          if(tt === '.' || tt === '~'){
+          const sink = tt === '~' && pt === 'O';       // a mirror is too precious to drown
+          if(tt === '.' || sink){
             map[fr][fc] = '.'; pl.push = 16;
-            if(tt === '~'){                          // it sinks and fills the water for good
+            if(sink){                                 // it fills the water for good
               map[tr][tc] = '.';
               part(tc*TS + 20, tr*TS + 20, 26, '#4db6ff', 4, 34);
               snd(160, .3, 'sine', .06, 60);
             } else {
-              map[tr][tc] = 'O';
-              part(tc*TS + 20, tr*TS + 20, 8, '#8878c8', 2, 20, 3);
+              map[tr][tc] = pt;
+              part(tc*TS + 20, tr*TS + 20, 8, pt === 'O' ? '#8878c8' : '#8fd8ff', 2, 20, 3);
               snd(90, .16, 'square', .05, 60);
             }
           }
@@ -127,18 +129,14 @@ function step(){
     if(e.flash) e.flash--;
     if(!e.hp) continue;
     const d = Math.hypot(pl.x - e.x, pl.y - e.y) || 1;
+    const hid = inDark(e);                          // only your light makes them real
+    const spd = room.drain > .02 ? (hid ? 1.3 : .55) : 1;
     if(e.t === 'E'){                                // slime
-      const dx = pl.x - e.x, dy = pl.y - e.y, sp = 1.15 + Math.sin(tick/20 + e.w)*.35;
+      const dx = pl.x - e.x, dy = pl.y - e.y;
+      const sp = (1.15 + Math.sin(tick/20 + e.w)*.35) * spd;
       if(!blocked(e.x + dx/d*sp, e.y, 11, 0)) e.x += dx/d*sp;
       if(!blocked(e.x, e.y + dy/d*sp, 11, 0)) e.y += dy/d*sp;
-      if(d < 26){
-        if(pl.dash > 0) kill(e);
-        else if(pl.inv === 0){
-          hurt(1);
-          pl.x -= dx/d*22; pl.y -= dy/d*22;
-          if(blocked(pl.x, pl.y, pl.r)){ pl.x += dx/d*22; pl.y += dy/d*22; }
-        }
-      }
+      if(d < 26) bump(e, d, !hid);                  // you cannot ram what you cannot see
     } else if(e.t === 'C'){                         // rain cloud: it eats rainbows
       let tx = e.hx, ty = e.hy;
       const b = bows[0];
@@ -200,14 +198,14 @@ function step(){
       else if(d < 20){ e.hp = 0; part(e.x, e.y, 10, '#8fd8ff', 2.4, 20, 2); bump(e, d, 0); }
     } else if(e.t === 'W'){                          // bridge weevil: chases you onto a rainbow
       const id = (e.x/TS | 0) + ',' + (e.y/TS | 0), on = bridged.has(id);
-      const dx = pl.x - e.x, dy = pl.y - e.y, sp = on ? 2.3 : 1.1;
+      const dx = pl.x - e.x, dy = pl.y - e.y, sp = (on ? 2.3 : 1.1) * spd;
       if(!blocked(e.x + dx/d*sp, e.y, 10, 0)) e.x += dx/d*sp;
       if(!blocked(e.x, e.y + dy/d*sp, 10, 0)) e.y += dy/d*sp;
       if(on){                                        // and gnaws the bridge under itself
         for(const bw of bows) if(bw.parts.some(q => q.tiles.includes(id))) bw.life -= 1.3;
         if(tick % 6 === 0) part(e.x, e.y, 1, 0, 1.2, 20, 2);
       }
-      if(d < 24) bump(e, d, 1);
+      if(d < 24) bump(e, d, !hid);
     } else if(e.t === 'V'){                          // colour thief
       const away = e.holds ? -1 : 1;
       const sp = e.holds ? 2.1 : 1.35;

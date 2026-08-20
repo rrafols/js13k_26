@@ -62,4 +62,31 @@ const d0=a.room.drain; s(30);
 T('colour floods back', a.room.drain<d0 && a.ps.length>50);
 a.pl.y=mid(6); s(300,{d:1}); T('into Prism Sanctum', room()===6);
 a.draw();
+// ---------- a bridge must be walkable, not just present ----------
+// A diagonal throw used to leave a staircase of tiles touching only at their
+// corners; the hitbox is wider than that corner, so the unicorn wedged.
+function orphans(deg){
+  a.newGame(); a.enter(0, 60, 262);
+  a.pl.x = mid(9); a.pl.y = mid(6);
+  const th = deg*Math.PI/180;
+  a.aim.x = a.pl.x + Math.cos(th)*300; a.aim.y = a.pl.y + Math.sin(th)*300;
+  a.charge = 280; a.fire();
+  const open = id => { const [c, r] = id.split(',').map(Number); return a.bridged.has(id) || a.map[r][c] !== '~'; };
+  const seen = new Set(['9,6']), q = [[9, 6]];
+  while(q.length){
+    const [c, r] = q.pop();
+    for(const [dc, dr] of [[1,0],[-1,0],[0,1],[0,-1]]){
+      const nc = c + dc, nr = r + dr, id = nc + ',' + nr;
+      if(nc < 0 || nr < 0 || nc > 23 || nr > 12 || seen.has(id)) continue;
+      if(a.map[nr][nc] === '#' || !open(id)) continue;
+      seen.add(id); q.push([nc, nr]);
+    }
+  }
+  return [...a.bridged].filter(id => !seen.has(id));
+}
+T('a 45 degree bridge is walkable end to end', orphans(45).length === 0 && orphans(-45).length === 0);
+let worst = 0;
+for(let d = -60; d <= 60; d += 3) worst = Math.max(worst, orphans(d).length);
+T('no throw angle leaves a tile you can only reach diagonally', worst === 0);
+
 done();

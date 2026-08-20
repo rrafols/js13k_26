@@ -4,7 +4,7 @@
 function cast(x0, y0, dir, len, real, col, depth, out, bnc, skip){
   out = out || [];
   let dx = Math.cos(dir), dy = Math.sin(dir);
-  let x = x0, y = y0, sx = x, sy = y, rem = len, bounces = bnc || 0, lastM = '', lastT = '';
+  let x = x0, y = y0, sx = x, sy = y, rem = len, bounces = bnc || 0, lastM = '', lastT = '', pc = -1, pr = -1;
   const segs = [], tiles = [], lit = [], ramps = [];
   out.push({segs, tiles, lit, ramps, col});
   const end = () => { segs.push({x:sx, y:sy, dx, dy, len:Math.hypot(x - sx, y - sy)}); return out; };
@@ -15,11 +15,12 @@ function cast(x0, y0, dir, len, real, col, depth, out, bnc, skip){
     if('#XDO'.includes(t) || (t === 'G' && !gateOpen()) || (t === 'Y' && pl.shards < shardGoal)){
       x -= dx*s; y -= dy*s; return end();
     }
-    if((t === '/' || t === '\\') && bounces < 6 && id !== lastM){
+    if('/\\()'.includes(t) && bounces < 6 && id !== lastM){
       bounces++; lastM = id;
+      const up = t === '/' || t === '(';               // ( and ) ride on sledges
       const mx = c*TS + 20, my = r*TS + 20;
       segs.push({x:sx, y:sy, dx, dy, len:Math.hypot(mx - sx, my - sy)});
-      const ndx = t === '/' ? -dy : dy, ndy = t === '/' ? -dx : dx;
+      const ndx = up ? -dy : dy, ndy = up ? -dx : dx;
       dx = ndx; dy = ndy; x = sx = mx; y = sy = my;
       if(real) part(mx, my, 8, '#fff', 2.6, 20, 2);
       continue;
@@ -29,12 +30,19 @@ function cast(x0, y0, dir, len, real, col, depth, out, bnc, skip){
       x = mx; y = my; end();
       if(depth < 2){
         const a = Math.atan2(dy, dx);
-        [[1, -.32], [2, 0], [4, .32]].forEach(([bit, off]) => {
+        [[1, -.17], [2, 0], [4, .17]].forEach(([bit, off]) => {
           if(col & bit) cast(mx, my, a + off, rem, real, bit, depth + 1, out, bounces, id);
         });
       }
       if(real){ part(mx, my, 16, 0, 3, 26); snd(900, .2, 'triangle', .045, 1900); }
       return out;
+    }
+    if(t === '+'){                                   // lens: the beam leaves it longer
+      const seen = out.lens || (out.lens = new Set());
+      if(!seen.has(id)){
+        seen.add(id); rem += LENS;
+        if(real){ part(c*TS + 20, r*TS + 20, 14, '#dff3ff', 2.6, 26, 2); snd(1500, .18, 'triangle', .05, 2400); }
+      }
     }
     if('rgb'.includes(t) && id !== skip){            // filter: one channel survives
       const bit = t === 'r' ? 1 : t === 'g' ? 2 : 4;
@@ -48,6 +56,16 @@ function cast(x0, y0, dir, len, real, col, depth, out, bnc, skip){
       lastT = id; lit.push(id);
       if(t === '~') tiles.push(id);
       if(t === '^') ramps.push(id);                  // a rainbow laid up a cliff is a ramp
+      // A diagonal step leaves a staircase of tiles that only touch at their
+      // corners. The drawn band is wider than a tile and covers the two elbows,
+      // so bridge them as well -- otherwise the walkable path is diagonal only
+      // and the unicorn wedges between two tiles it cannot enter.
+      if(pc >= 0 && pc !== c && pr !== r) for(const [ec, er] of [[pc, r], [c, pr]]){
+        const et = at(ec, er), eid = ec + ',' + er;
+        if(et === '~') tiles.push(eid);
+        if(et === '^') ramps.push(eid);
+      }
+      pc = c; pr = r;
     }
     if(real){
       if(t === 'q'){                                 // pot
@@ -104,7 +122,8 @@ function fire(){
   const a0 = Math.atan2(aim.y - pl.y, aim.x - pl.x);
   const parts = [];
   const col = (7 & ~pl.stolen) || 7;                 // the thief takes a channel with it
-  (fan ? [-.3, 0, .3] : [0]).forEach(a => cast(pl.x, pl.y, a0 + a, charge, 1, col, 0, parts, 0));
+  (fan ? [-.16, 0, .16] : [0]).forEach(a => cast(pl.x, pl.y, a0 + a, charge, 1, col, 0, parts, 0));
+  if(fan) parts.forEach(p => p.thin = 1);
   bows.push({parts, life:BOWLIFE});
   if(bows.length > MAXBOWS) bows.shift();
   resolve();

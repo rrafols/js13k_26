@@ -16,8 +16,13 @@ Open `index.html`. Four modes from the title screen:
 | **Boss Rush** | straight to the arena, with the Prism Horn |
 
 WASD to move, hold the mouse to charge a rainbow and release to throw it,
-shift to gallop, R to restart, M to mute, esc for the menu. Best times per mode
-are kept in localStorage.
+shift to gallop, R to restart, M to mute, C for colourblind pips, esc for the
+menu. Best times per mode are kept in localStorage.
+
+**Colourblind support:** press C and every colour in the game is also spelled
+out as three dots — red, green, blue, filled if that channel is present. A red
+crystal reads white-empty-empty, a yellow one white-white-empty. The setting is
+remembered.
 
 ## The rainbow
 
@@ -27,11 +32,21 @@ A thrown rainbow is light with a colour mask (red/green/blue). It:
 - **ramps** up `^` plateaus so you can climb them
 - **lights** crystals — each wants one exact colour
 - **bounces** off `/` and `\` mirrors, and only a bounced beam wounds the storm
-- **splits** at a prism into its three channels, fanned apart
+- **splits** at a prism into its three channels, fanned slightly apart and
+  drawn slimmer, because refracted light is weaker than the beam that fed it
+- **carries further** through a lens, which adds five tiles to whatever range
+  the throw had left
 - **filters** through `r` `g` `b` glass, coming out one colour
 - **mixes** with other live beams: red plus green on a tile makes yellow
 - **paints** every tile it crosses, and a drained room's colour comes back as
   you repaint it
+- **decides what is real**: in a dark room an enemy you have not lit is quick
+  and cannot be run down, and shows only as eyes. Light it and it slows, and the
+  gallop kills it again
+- **lights** the dark: a drained room is unlit, and the beam is the lamp. Walls
+  cast shadows for free, because a beam stops at the first solid tile and only
+  the tiles it entered are lit. What you have painted stays faintly visible, so
+  your paint is your map.
 
 ## Layout
 

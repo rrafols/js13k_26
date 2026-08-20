@@ -97,10 +97,46 @@ the grid and already bounced.
 - **Furniture** — pots, chests, and push-blocks that fill water permanently and
   cast shadows in the light engine.
 
+## Built since (darkness)
+
+- **Darkness in drained rooms** — a room the storm drank is dark as well as
+  grey, and the rainbow is the lamp. No shadow geometry: `cast()` already stops
+  at the first solid tile and records the tiles a beam entered, so what is
+  behind a wall is simply never in that set. `room.paint` doubles as memory —
+  tiles your light has touched stay faintly visible, so the map you carry is
+  the map you painted. Torches now flood a room when lit, pickups glimmer, the
+  storm and its lightning glow, and the room brightens as the drain lifts.
+
+## Built since (lens)
+
+- **The lens** (`+`) — a beam that crosses one leaves it with five extra tiles
+  of range, once per lens per throw. Two sit in Switch Isles so the far
+  crystals come into reach from the near shore, and the generator has a lens
+  template. Refraction was also narrowed (prism and horn fan from about 18
+  degrees to 9) and split beams now draw thinner than the beam that fed them.
+
+## Built since (light as a mechanic)
+
+- **Light-reactive enemies** — in a drained room, an enemy standing outside your
+  light is a third faster, immune to the gallop, and drawn as eyes only. In your
+  light it slows to half speed and dies to a charge. Bright rooms are untouched.
+- **Pushable mirrors** — `(` and `)` are mirrors on sledges. Shove them like
+  blocks (they refuse to sink), and the beam bounces off them exactly as it does
+  off a fixed mirror. One waits in Mirror Hall; the generator has a template
+  where lining one up *is* the puzzle.
+- **Colourblind pips** — C spells every colour as three channel dots on a dark
+  plate, on crystals, filters and the beam you are charging. Remembered.
+- **Start and end cards** — a run opens on the premise instead of dropping you
+  in cold, and ends on a card with time, best, colours, rooms and mode. Dying
+  now ends a run properly instead of silently restarting it.
+
 ## Still on the shelf
 
-1. **Horn-as-prism retrofit** — make the Prism Horn fire red/green/blue instead of three white beams, so colour puzzles can appear in any room rather than only where a prism tile sits.
-2. **Colour-locked doors** — gates that read a specific hue, the natural next step for the light engine.
-3. **Drawn beam paths** — the Phantom Hourglass stylus line, for rainbows that turn corners without mirrors.
-4. **NPCs and a hub** — typewriter text boxes, a village between runs.
-5. **Fire relay** — a rainbow passing a lit torch carries flame to the next one.
+1. **Isometric projection** — stage two of the darkness work. Prototype and
+   findings in `spike/iso.html`; the grid, collision and tests are untouched by
+   it, and a zoomed follow camera keeps a full-charge beam (7 tiles) on screen.
+2. **Horn-as-prism retrofit** — make the Prism Horn fire red/green/blue instead of three white beams, so colour puzzles can appear in any room rather than only where a prism tile sits.
+3. **Colour-locked doors** — gates that read a specific hue, the natural next step for the light engine.
+4. **Drawn beam paths** — the Phantom Hourglass stylus line, for rainbows that turn corners without mirrors.
+5. **NPCs and a hub** — typewriter text boxes, a village between runs.
+6. **Fire relay** — a rainbow passing a lit torch carries flame to the next one.

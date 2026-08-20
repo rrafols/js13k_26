@@ -14,10 +14,11 @@ import { bundleEntry } from '../build/bundle.mjs'
 
 const API = `;var api={
   step, draw, newGame, fire, cast, enter, gateOpen, solid, resolve, bossHit, thiefHit,
-  gen, genRush, start, title, rnd32, SRC,
+  gen, genRush, start, title, rnd32, SRC, darkness, blocked,
+  get LMAP(){return LMAP},
   get DUN(){return DUN}, get scene(){return scene}, set scene(v){scene=v},
   get mode(){return mode}, get runF(){return runF}, get best(){return best},
-  get shardGoal(){return shardGoal}, get pl(){return pl}, get map(){return map},
+  get shardGoal(){return shardGoal}, get cb(){return cb}, get endWin(){return endWin}, get pl(){return pl}, get map(){return map},
   get room(){return room}, get rooms(){return rooms},
   get ents(){return ents}, set ents(v){ents=v},
   get bows(){return bows}, get bridged(){return bridged}, get ramped(){return ramped},
