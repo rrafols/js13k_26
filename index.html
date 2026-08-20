@@ -55,18 +55,18 @@ const SRC = [
   '########################',
   '#.........~~~~~........#',
   '#.........~~~~~........#',
-  '#....S....~~~~~...S.H..#',
+  '#....7....~~~~~...7.H..#',
   '#.........~~~~~........#',
   '#.........~~~~~........#',
   '..........~~~~~........G',
   '#.........~~~~~........#',
   '#.........~~~~~........#',
-  '#....S....~~~~~...S....#',
+  '#....7....~~~~~...7....#',
   '#.........~~~~~...R....#',
   '#.........~~~~~........#',
   '########################']},
 
-{ name:'Gallop Hall', start:[1,6], links:{w:2, e:4, n:8}, mp:[3,1], m:[
+{ name:'Gallop Hall', start:[1,6], links:{w:2, e:4, n:10}, mp:[3,1], m:[
   '###.####################',
   '#.......#...~~~~~~~~...#',
   '#.......#...~~~~~~~~...#',
@@ -83,7 +83,7 @@ const SRC = [
 
 { name:'Mirror Hall', start:[1,6], links:{w:3, e:5}, mp:[4,1], m:[
   '########################',
-  '#...S..\\......../..S...#',
+  '#...7..\\......../..7...#',
   '#...###....E.....###...#',
   '#......................#',
   '#.........~~~~~........#',
@@ -126,7 +126,37 @@ const SRC = [
   '#......................#',
   '########################']},
 
-{ name:'Storm Approach', start:[1,6], links:{w:6, e:9}, mp:[7,1], m:[
+{ name:'Prism Ward', start:[1,6], links:{w:6, e:8}, mp:[7,1], drain:1, m:[
+  '########################',
+  '#......................#',
+  '#..~~~~.............H..#',
+  '#..~~~~................#',
+  '#..~~~~................#',
+  '#...............1......#',
+  '............>...2......G',
+  '#...............4......#',
+  '#..~~~~................#',
+  '#..~~~~................#',
+  '#..~~~~.............E..#',
+  '#......................#',
+  '########################']},
+
+{ name:'Filter Gallery', start:[1,6], links:{w:7, e:9}, mp:[8,1], drain:1, m:[
+  '########################',
+  '#......................#',
+  '#...................H..#',
+  '#...........#.##g##....#',
+  '#...........#..........#',
+  '#...........#..........#',
+  '............r...3......G',
+  '#...........#..........#',
+  '#...........#..........#',
+  '#..##b##....#..........#',
+  '#...................E..#',
+  '#....4..E..............#',
+  '########################']},
+
+{ name:'Storm Approach', start:[1,6], links:{w:8, e:11}, mp:[9,1], m:[
   '########################',
   '#........~~~~~~~~......#',
   '#........~~~~~~~~....E.#',
@@ -156,7 +186,7 @@ const SRC = [
   '#......................#',
   '###.####################']},
 
-{ name:'Sun Gate', start:[1,6], links:{w:7, e:10}, mp:[8,1], m:[
+{ name:'Sun Gate', start:[1,6], links:{w:9, e:12}, mp:[10,1], m:[
   '########################',
   '#......................#',
   '#.........~~~~.........#',
@@ -171,7 +201,7 @@ const SRC = [
   '#......................#',
   '########################']},
 
-{ name:'Storm Arena', start:[1,6], links:{w:9}, mp:[9,1], m:[
+{ name:'Storm Arena', start:[1,6], links:{w:11}, mp:[11,1], m:[
   '########################',
   '#......................#',
   '#.~~~..............~~~.#',
@@ -192,16 +222,30 @@ const SRC = [
 const SPD = 2.7, MINLEN = 80, MAXLEN = 280, MAXBOWS = 3, BOWLIFE = 420;
 const DASH = 13, DSPD = 6.6, DCD = 34, SHARDS = 7;
 const BANDS = ['#ff4d5e','#ff9c3d','#ffe14d','#5ddb62','#4db6ff','#5a5aff','#b04dff'];
+// A beam carries a 3-bit colour mask: 1 red, 2 green, 4 blue, 7 white. Prisms
+// split it into channels, filters keep one, and beams crossing the same tile
+// mix additively -- red + green lights a yellow crystal.
+const MASKC = ['#666','#ff4d5e','#5ddb62','#ffe14d','#4db6ff','#ff5ef0','#4de1d5','#fff'];
+const STRIPES = MASKC.map((h, m) => {
+  if(m === 7) return BANDS;
+  const n = parseInt(h.slice(1).replace(/^(.)(.)(.)$/, '$1$1$2$2$3$3'), 16);
+  const R = n >> 16, G = (n >> 8) & 255, B = n & 255;
+  return [0,1,2,3,4,5,6].map(i => {
+    const t = (i - 3)/3, f = v => Math.round(t < 0 ? v*(1 + t*.5) : v + (255 - v)*t*.5);
+    return 'rgb(' + f(R) + ',' + f(G) + ',' + f(B) + ')';
+  });
+});
 let rooms, room, map, ents, bows, bridged, ps, pl, aim, charge, charging, won, shake = 0, tick = 0, keys = {};
 
 function newGame(){
-  rooms = SRC.map(r => ({...r, m:r.m.map(s => s.split('')), ents:null, drain:r.drain || 0, seen:0}));
+  rooms = SRC.map(r => ({...r, m:r.m.map(s => s.split('')), ents:null, drain:r.drain || 0,
+                         seen:0, lit:new Set(), paint:new Map(), go:null}));
   pl = {x:0, y:0, r:13, dir:0, hp:3, keys:0, shards:0, prism:0, inv:0, dash:0, cd:0};
   won = 0; aim = {x:600, y:300}; charge = 0; charging = 0; shake = 0;
   enter(0, SRC[0].start[0]*TS + TS/2, SRC[0].start[1]*TS + TS/2);
 }
 function enter(i, x, y){
-  room = rooms[i]; map = room.m; room.seen = 1;
+  room = rooms[i]; map = room.m; room.seen = 1; room.go = null;
   if(!room.ents){                                   // spawn contents once per room
     room.ents = [];
     map.forEach((row, r) => row.forEach((t, c) => {
@@ -267,11 +311,20 @@ onmouseup = ontouchend = () => { if(charging){ fire(); charging = 0; } };
 // G gate  Y sun gate  D locked door  K key  H heart  R shard  P prism  C cloud
 // E slime  B storm  T sun door
 const at = (c, r) => (c < 0 || r < 0 || c >= COLS || r >= ROWS) ? '#' : map[r][c];
-const gateOpen = () => !map.some(row => row.includes('S') || row.includes('f'));
+function gateOpen(){                                 // every crystal lit, every torch burning
+  if(room.go == null){
+    room.go = 1;
+    for(let r = 0; r < ROWS && room.go; r++) for(let c = 0; c < COLS; c++){
+      const t = map[r][c];
+      if(t === 'f' || (t >= '1' && t <= '7' && !room.lit.has(c + ',' + r))){ room.go = 0; break; }
+    }
+  }
+  return room.go;
+}
 
 function solid(x, y){
   const c = x/TS | 0, r = y/TS | 0, t = at(c, r);
-  if('#XDfF/\\'.includes(t)) return 1;
+  if('#XDfF/\\>rgb'.includes(t)) return 1;
   if(t === 'G') return gateOpen() ? 0 : 1;
   if(t === 'Y') return pl.shards >= SHARDS ? 0 : 1;
   if(t === '~') return bridged.has(c + ',' + r) ? 0 : 1;
@@ -282,31 +335,58 @@ const blocked = (x, y, r) => solid(x-r, y-r) || solid(x+r, y-r) || solid(x-r, y+
 // ---------- rainbow ----------
 // March from the unicorn: bridge water, light crystals and torches, blast
 // slimes, bounce off mirrors. A beam only harms the storm after a bounce.
-function cast(len, real, ang){
-  let a0 = Math.atan2(aim.y - pl.y, aim.x - pl.x) + (ang || 0);
-  let dx = Math.cos(a0), dy = Math.sin(a0);
-  let x = pl.x, y = pl.y, sx = x, sy = y, rem = len, bounces = 0, lastM = '';
-  const segs = [], tiles = [];
+function cast(x0, y0, dir, len, real, col, depth, out, bnc, skip){
+  out = out || [];
+  let dx = Math.cos(dir), dy = Math.sin(dir);
+  let x = x0, y = y0, sx = x, sy = y, rem = len, bounces = bnc || 0, lastM = '', lastT = '';
+  const segs = [], tiles = [], lit = [];
+  out.push({segs, tiles, lit, col});
+  const end = () => { segs.push({x:sx, y:sy, dx, dy, len:Math.hypot(x - sx, y - sy)}); return out; };
   while(rem > 0){
     const s = Math.min(4, rem);
     x += dx*s; y += dy*s; rem -= s;
     const c = x/TS | 0, r = y/TS | 0, t = at(c, r), id = c + ',' + r;
     if('#XD'.includes(t) || (t === 'G' && !gateOpen()) || (t === 'Y' && pl.shards < SHARDS)){
-      x -= dx*s; y -= dy*s; break;
+      x -= dx*s; y -= dy*s; return end();
     }
     if((t === '/' || t === '\\') && bounces < 6 && id !== lastM){
       bounces++; lastM = id;
-      const mx = c*TS + TS/2, my = r*TS + TS/2;
+      const mx = c*TS + 20, my = r*TS + 20;
       segs.push({x:sx, y:sy, dx, dy, len:Math.hypot(mx - sx, my - sy)});
       const ndx = t === '/' ? -dy : dy, ndy = t === '/' ? -dx : dx;
       dx = ndx; dy = ndy; x = sx = mx; y = sy = my;
       if(real) part(mx, my, 8, '#fff', 2.6, 20, 2);
       continue;
     }
-    if(t === '~') tiles.push(id);
+    if(t === '>' && id !== skip){                    // prism: fan the channels apart
+      const mx = c*TS + 20, my = r*TS + 20;
+      x = mx; y = my; end();
+      if(depth < 2){
+        const a = Math.atan2(dy, dx);
+        [[1, -.32], [2, 0], [4, .32]].forEach(([bit, off]) => {
+          if(col & bit) cast(mx, my, a + off, rem, real, bit, depth + 1, out, bounces, id);
+        });
+      }
+      if(real){ part(mx, my, 16, 0, 3, 26); snd(900, .2, 'triangle', .045, 1900); }
+      return out;
+    }
+    if('rgb'.includes(t) && id !== skip){            // filter: one channel survives
+      const bit = t === 'r' ? 1 : t === 'g' ? 2 : 4;
+      const mx = c*TS + 20, my = r*TS + 20;
+      x = mx; y = my; end();
+      if(col & bit) cast(mx, my, Math.atan2(dy, dx), rem, real, bit, depth + 1, out, bounces, id);
+      else if(real) part(mx, my, 8, '#3a3260', 1.6, 18, 2);
+      return out;
+    }
+    if(id !== lastT){                                // one entry per tile entered
+      lastT = id; lit.push(id);
+      if(t === '~') tiles.push(id);
+    }
     if(real){
-      if(t === 'S'){ map[r][c] = 's'; part(c*TS + 20, r*TS + 20, 20, '#ffe14d', 3.4, 34); snd(1200, .25, 'triangle', .06, 1700); }
-      if(t === 'f'){ map[r][c] = 'F'; part(c*TS + 20, r*TS + 20, 20, '#ff9c3d', 3.4, 34); snd(170, .3, 'sawtooth', .05, 90); }
+      if(t === 'f'){
+        map[r][c] = 'F'; room.go = null;
+        part(c*TS + 20, r*TS + 20, 20, '#ff9c3d', 3.4, 34); snd(170, .3, 'sawtooth', .05, 90);
+      }
       for(const e of ents){
         if(!e.hp) continue;
         if(e.t === 'E' && Math.hypot(e.x - x, e.y - y) < 20) kill(e);
@@ -314,28 +394,54 @@ function cast(len, real, ang){
       }
     }
   }
-  segs.push({x:sx, y:sy, dx, dy, len:Math.hypot(x - sx, y - sy)});
-  return {segs, tiles};
+  return end();
 }
 function kill(e){ e.hp = 0; e.pop = 12; part(e.x, e.y, 16, '#b04dff', 3.2, 28); snd(400, .12, 'square', .04, 110); }
 function fire(){
-  const fan = pl.prism && charge > MAXLEN - 25;            // Prism Horn: a full charge forks
-  const parts = (fan ? [-.3, 0, .3] : [0]).map(a => cast(charge, 1, a));
+  const fan = pl.prism && charge > MAXLEN - 25;      // Prism Horn forks a full charge
+  const a0 = Math.atan2(aim.y - pl.y, aim.x - pl.x);
+  const parts = [];
+  (fan ? [-.3, 0, .3] : [0]).forEach(a => cast(pl.x, pl.y, a0 + a, charge, 1, 7, 0, parts, 0));
   bows.push({parts, life:BOWLIFE});
   if(bows.length > MAXBOWS) bows.shift();
-  rebridge();
+  resolve();
   part(pl.x + Math.cos(pl.dir)*16, pl.y + Math.sin(pl.dir)*16, 12, 0, 3, 24);
   if(fan) tune([700, 950, 1250], 45, 'sawtooth', .05); else snd(680, .18, 'sawtooth', .045, 190);
 }
-const rebridge = () => bridged = new Set(bows.flatMap(b => b.parts.flatMap(p => p.tiles)));
+// Gather every live beam: bridges, the colour standing on each tile, the paint
+// the room keeps, and any crystal whose exact colour is now shining on it.
+function resolve(){
+  bridged = new Set();
+  const light = new Map();
+  for(const b of bows) for(const p of b.parts){
+    for(const id of p.tiles) bridged.add(id);
+    for(const id of p.lit) light.set(id, (light.get(id) || 0) | p.col);
+  }
+  light.forEach((m, id) => {
+    room.paint.set(id, (room.paint.get(id) || 0) | m);
+    const [c, r] = id.split(',');
+    const t = map[r][c];
+    if(t >= '1' && t <= '7' && +t === m && !room.lit.has(id)){
+      room.lit.add(id); room.go = null;
+      part(c*TS + 20, r*TS + 20, 26, MASKC[m], 3.6, 36);
+      snd(620 + m*120, .28, 'triangle', .06, 1700);
+    }
+  });
+  if(room.drain > 0){                                // light you route repaints the room,
+    let lift = Math.max(0, 1 - room.paint.size/60);  // but the storm keeps drinking it
+    if(ents.some(e => e.t === 'B' && e.hp)) lift = Math.max(lift, .5);
+    room.drain = Math.min(room.drain, lift);
+  }
+}
 
 // ---------- storm ----------
 function bossHit(e){
   e.hp--; e.iv = 45; e.flash = 16; shake = 13;
   part(e.x, e.y, 30, '#fff', 5, 34, 4);
   snd(110, .35, 'sawtooth', .09, 40);
-  if(e.hp === 3){                                   // phase 2: it drinks the colour
-    room.drain = 1; room.burst = 0; shake = 20;
+  if(e.hp === 3){                                   // phase 2: it drinks the colour,
+    room.drain = 1; room.burst = 0; shake = 20;     // paint and all -- repaint it while you fight
+    room.paint.clear();
     for(let i = 0; i < 2; i++) ents.push({t:'C', x:120 + i*600, y:120, hx:0, hy:0, hp:1, w:i*3});
     tune([300, 240, 180], 110, 'sawtooth', .07);
   }
@@ -379,7 +485,7 @@ function step(){
   if(pl.cd > 0) pl.cd--;
 
   bows.forEach(b => b.life--);                      // rainbows fade, bridges go with them
-  if(bows.some(b => b.life <= 0)){ bows = bows.filter(b => b.life > 0); rebridge(); }
+  if(bows.some(b => b.life <= 0)){ bows = bows.filter(b => b.life > 0); resolve(); }
 
   if((keys.shift || keys[' ']) && pl.cd <= 0){ pl.dash = DASH; pl.cd = DASH + DCD; snd(300, .12, 'triangle', .04, 620); }
   if(pl.dash > 0){                                  // gallop: committed, and it breaks things
@@ -507,7 +613,7 @@ function drawBow(b){
     const nx = -s.dy, ny = s.dx, ex = s.x + s.dx*s.len, ey = s.y + s.dy*s.len;
     g.strokeStyle = '#ffffff33'; g.lineWidth = 46;
     g.beginPath(); g.moveTo(s.x, s.y); g.lineTo(ex, ey); g.stroke();
-    BANDS.forEach((col, i) => {
+    (STRIPES[p.col] || BANDS).forEach((col, i) => {
       const o = (i - 3) * 5.8;
       g.strokeStyle = col; g.lineWidth = 6;
       g.beginPath(); g.moveTo(s.x + nx*o, s.y + ny*o); g.lineTo(ex + nx*o, ey + ny*o); g.stroke();
@@ -564,7 +670,7 @@ function star(x, y, n, ri, ro, rot){
 function drawWorld(){
   for(let r = 0; r < ROWS; r++) for(let c = 0; c < COLS; c++){       // ground
     const t = map[r][c], x = c*TS, y = r*TS;
-    if('#X/\\fF'.includes(t)){
+    if('#X/\\fF>rgb'.includes(t)){
       g.fillStyle = '#4a3d78'; g.fillRect(x, y, TS, TS);
       g.fillStyle = '#6b5aa8'; g.fillRect(x + 2, y + 2, TS - 4, TS - 10);
       g.fillStyle = '#8878c8'; g.fillRect(x + 2, y + 2, TS - 4, 4);
@@ -578,6 +684,12 @@ function drawWorld(){
       g.fillStyle = (c + r) % 2 ? '#37305c' : '#3b3462';
       g.fillRect(x, y, TS, TS);
       g.fillStyle = '#ffffff08'; g.fillRect(x + 4, y + 4, 3, 3);
+    }
+    const pm = room.paint.get(c + ',' + r);          // colour this tile has been shown
+    if(pm){
+      g.globalAlpha = pm === 7 ? .22 : .3;            // white light leaves a faint rainbow
+      g.fillStyle = pm === 7 ? BANDS[(c*3 + r*5) % 7] : MASKC[pm];
+      g.fillRect(x, y, TS, TS); g.globalAlpha = 1;
     }
   }
 
@@ -617,11 +729,21 @@ function drawWorld(){
         g.fillStyle = i < pl.shards ? BANDS[i] : '#4b4468';
         g.fillRect(x + 2 + i*5.3, y + (open ? 0 : 2), 4, open ? 6 : TS - 4);
       }
-    } else if(t === 'S' || t === 's'){
-      const on = t === 's';
-      g.fillStyle = on ? '#ffe14d' : '#6d6d92';
+    } else if(t >= '1' && t <= '7'){                 // crystal: wants exactly this colour
+      const on = room.lit.has(c + ',' + r), col = MASKC[+t];
+      g.fillStyle = on ? col : '#6d6d92';
       star(mx, my, 4, 5, on ? 15 : 12, tick/50);
-      if(on){ g.globalAlpha = .25; star(mx, my, 4, 8, 22, -tick/40); g.globalAlpha = 1; }
+      if(on){ g.globalAlpha = .3; g.fillStyle = col; star(mx, my, 4, 8, 22, -tick/40); g.globalAlpha = 1; }
+      else { g.fillStyle = col; star(mx, my, 4, 2, 6, tick/50); }
+    } else if(t === '>'){                            // prism
+      g.fillStyle = '#dff3ff';
+      g.beginPath(); g.moveTo(mx, y + 5); g.lineTo(x + 35, y + 33); g.lineTo(x + 5, y + 33); g.fill();
+      BANDS.forEach((cc, i) => { g.fillStyle = cc; g.fillRect(x + 6 + i*4, y + 29, 3.6, 6); });
+    } else if(t === 'r' || t === 'g' || t === 'b'){  // colour filter
+      const col = MASKC[t === 'r' ? 1 : t === 'g' ? 2 : 4];
+      g.globalAlpha = .8; g.fillStyle = col; g.fillRect(x + 3, y + 3, TS - 6, TS - 6); g.globalAlpha = 1;
+      g.strokeStyle = '#ffffff77'; g.lineWidth = 2; g.strokeRect(x + 3, y + 3, TS - 6, TS - 6);
+      g.fillStyle = '#ffffff55'; g.fillRect(x + 7, y + 7, 8, TS - 14);
     } else if(t === 'T'){
       g.fillStyle = '#ffb84d'; g.globalAlpha = .3;
       g.beginPath(); g.arc(mx, my, 26 + Math.sin(tick/15)*3, 0, 7); g.fill();
@@ -631,14 +753,18 @@ function drawWorld(){
   }
 
   if(charging){                                      // preview + charge ring
-    const b = cast(charge, 0);
-    g.setLineDash([7, 7]); g.lineWidth = 3; g.strokeStyle = '#ffffff77';
-    g.beginPath();
-    for(const s of b.segs){ g.moveTo(s.x, s.y); g.lineTo(s.x + s.dx*s.len, s.y + s.dy*s.len); }
-    g.stroke(); g.setLineDash([]);
-    const e = b.segs[b.segs.length - 1];
-    g.fillStyle = '#ffffffaa';
-    g.beginPath(); g.arc(e.x + e.dx*e.len, e.y + e.dy*e.len, 5, 0, 7); g.fill();
+    const bs = cast(pl.x, pl.y, Math.atan2(aim.y - pl.y, aim.x - pl.x), charge, 0, 7, 0, [], 0);
+    g.setLineDash([7, 7]); g.lineWidth = 3;
+    for(const p of bs){
+      g.strokeStyle = p.col === 7 ? '#ffffff77' : MASKC[p.col] + 'aa';
+      g.beginPath();
+      for(const s of p.segs){ g.moveTo(s.x, s.y); g.lineTo(s.x + s.dx*s.len, s.y + s.dy*s.len); }
+      g.stroke();
+      const e = p.segs[p.segs.length - 1];
+      g.fillStyle = '#ffffffaa';
+      g.beginPath(); g.arc(e.x + e.dx*e.len, e.y + e.dy*e.len, 4, 0, 7); g.fill();
+    }
+    g.setLineDash([]);
     const f = (charge - MINLEN)/(MAXLEN - MINLEN);
     g.strokeStyle = pl.prism && f > .87 ? '#dff3ff' : '#ffe14d'; g.lineWidth = 4;
     g.beginPath(); g.arc(pl.x, pl.y, 24, -1.57, -1.57 + f*6.283); g.stroke();
@@ -736,10 +862,10 @@ function drawWorld(){
 }
 
 function minimap(){
-  const s = 11, x0 = W - 20 - 10*s, y0 = HUD + 12;
-  g.fillStyle = '#0e0b1ee6'; g.fillRect(x0 - 6, y0 - 6, 10*s + 12, 2*s + 12);
+  const s = 10, x0 = W - 18 - 12*s, y0 = HUD + 12;
+  g.fillStyle = '#0e0b1ee6'; g.fillRect(x0 - 6, y0 - 6, 12*s + 12, 2*s + 12);
   g.strokeStyle = '#ffffff33'; g.lineWidth = 1;
-  g.strokeRect(x0 - 5.5, y0 - 5.5, 10*s + 11, 2*s + 11);
+  g.strokeRect(x0 - 5.5, y0 - 5.5, 12*s + 11, 2*s + 11);
   rooms.forEach(r => {
     if(!r.seen) return;
     const x = x0 + r.mp[0]*s, y = y0 + r.mp[1]*s;

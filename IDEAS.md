@@ -56,27 +56,31 @@ Hook notes point at where each one plugs into `index.html`.
 - [ ] **Room-slide transition** instead of the hard cut in `enter()`.
 - [x] **WebAudio synth** — rising arpeggio on the throw, a chime per crystal, hoofbeats.
 
-## Killer feature (the "this is 13KB?" moment)
+## Killer feature — BUILT
 
-**The Chromatic Light Engine.** Beams stop being decorative rainbows and become
-actual light: each carries an RGB mask. A prism tile splits white into red,
-green and blue paths; mirrors reflect (already built); filter tiles subtract a
-channel; crystals and gates demand an exact colour; and two beams crossing the
-same tile **mix additively** — red + green lights a yellow gate. The room's own
-palette is painted by whatever light currently runs through it, so a drained
-room visibly recolours as you solve it: the puzzle state *is* the picture.
+**The Chromatic Light Engine.** Beams are no longer decorative rainbows: each
+carries a 3-bit colour mask (1 red, 2 green, 4 blue, 7 white).
 
-Why it earns the wow: it is a small optics simulator — split, reflect, absorb,
-mix — driving both the puzzles and the rendering, and it costs roughly 1KB on
-top of the marcher in `cast()`, which already walks the grid and already
-bounces. Everything else in the dungeon (crystals, torches, gates, the storm's
-armour) becomes a colour condition for free.
+- **Prism tiles** `>` split an incoming beam into its channels and fan them
+  apart by dispersion angle — white in, red/green/blue out.
+- **Filter tiles** `r` `g` `b` keep one channel; the beam emerges recoloured.
+- **Crystals** are digits `1`-`7`: each demands *exactly* its colour, so white
+  light will not light a red crystal.
+- **Beams mix additively** on a tile — a red beam and a green beam crossing the
+  same crystal make yellow and light it. Since rainbows fade, a mix has to be
+  assembled while both beams are still alive.
+- **The room keeps the colour it is shown.** Every tile light passes through is
+  painted permanently, and a drained room's greyscale lifts in proportion to how
+  much of it you have repainted. The puzzle state *is* the picture.
+- The storm drinks your paint at phase 2, so the arena has to be repainted mid-
+  fight, and it never brightens past half while the boss lives.
 
-Sketch: give each beam `col = [r,g,b]`; `'>' ` prism tile emits three children
-with masks 100/010/001; `'-'` filter multiplies the mask; keep a per-tile
-`lightMask` accumulated each frame from all live beams; crystals compare their
-required mask to the tile's accumulated one; the floor tint of a tile lerps
-toward its accumulated light. Rendering reuses `BANDS` for the mask colours.
+Two rooms are built on it: **Prism Ward** (one white beam, three channels, three
+coloured crystals) and **Filter Gallery** (filters, plus a yellow crystal that
+only lights when a red and a green beam cross it).
+
+Cost: about 1.4KB zipped on top of the existing marcher, which already walked
+the grid and already bounced.
 
 ## Next five (recommended order)
 
