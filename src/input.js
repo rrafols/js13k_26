@@ -29,16 +29,61 @@ function toWorld(e){
   aim.x = (t.clientX - b.left)/b.width * W;
   aim.y = (t.clientY - b.top)/b.height * H - HUD;
 }
-cv.onmousemove = cv.ontouchmove  = e => { toWorld(e); e.preventDefault(); };
-cv.onmousedown = cv.ontouchstart = e => {
+cv.onmousemove = e => { toWorld(e); e.preventDefault(); };
+cv.onmousedown = e => {
   toWorld(e); e.preventDefault();
+  if(tap()) return;
+  charging = 1; charge = MINLEN;
+};
+window.onmouseup = () => { if(charging){ fire(); charging = 0; } };
+
+/** A press outside play: menu row, past the intro, off the end card. */
+function tap(){
   if(scene === 'title'){                             // menu rows sit 46px apart
     const i = (aim.y + HUD - 250)/46 | 0;
     if(i >= 0 && i < 4) start(MODES[i]);
-    return;
+    return 1;
   }
-  if(scene === 'intro'){ scene = 'play'; return; }
-  if(scene === 'end'){ scene = 'title'; return; }
-  charging = 1; charge = MINLEN;
+  if(scene === 'intro'){ scene = 'play'; return 1; }
+  if(scene === 'end'){ scene = 'title'; return 1; }
+  return 0;
+}
+
+// ---------- touch ----------
+// Left half is a thumbstick, right half aims and charges, and a second finger
+// on the left gallops. Without this the game is unplayable on a phone: you
+// could aim and throw but never walk.
+let stick = null, aimT = null, touchDash = 0, touched = 0;
+const tpos = t => {
+  const b = cv.getBoundingClientRect();
+  return [(t.clientX - b.left)/b.width * W, (t.clientY - b.top)/b.height * H - HUD];
 };
-window.onmouseup = window.ontouchend = () => { if(charging){ fire(); charging = 0; } };
+cv.ontouchstart = e => {
+  e.preventDefault();
+  touched = 1;
+  for(const t of e.changedTouches){
+    const [x, y] = tpos(t);
+    aim.x = x; aim.y = y;
+    if(tap()) return;
+    if(x < W/2){
+      if(stick) touchDash = 1;                       // second finger: gallop
+      else stick = {id:t.identifier, ox:x, oy:y, x, y};
+    } else if(aimT === null){
+      aimT = t.identifier; charging = 1; charge = MINLEN;
+    }
+  }
+};
+cv.ontouchmove = e => {
+  e.preventDefault();
+  for(const t of e.changedTouches){
+    const [x, y] = tpos(t);
+    if(stick && t.identifier === stick.id){ stick.x = x; stick.y = y; }
+    else if(t.identifier === aimT){ aim.x = x; aim.y = y; }
+  }
+};
+window.ontouchend = window.ontouchcancel = e => {
+  for(const t of e.changedTouches){
+    if(stick && t.identifier === stick.id) stick = null;
+    else if(t.identifier === aimT){ aimT = null; if(charging){ fire(); charging = 0; } }
+  }
+};

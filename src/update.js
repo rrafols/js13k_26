@@ -19,11 +19,16 @@ function step(){
   if(charging) charge = Math.min(MAXLEN, charge + 4);
   if(pl.inv > 0) pl.inv--;
   if(pl.cd > 0) pl.cd--;
+  if(pl.prism && pl.pch < PMAX && --pl.prech <= 0){  // the horn drinks the light back in
+    pl.pch++; pl.prech = PRECH;
+    snd(900 + pl.pch*180, .16, 'triangle', .04, 1600);
+  }
 
   bows.forEach(b => b.life--);                      // rainbows fade, bridges go with them
   if(bows.some(b => b.life <= 0)){ bows = bows.filter(b => b.life > 0); resolve(); }
 
-  if((keys.shift || keys[' ']) && pl.cd <= 0){ pl.dash = DASH; pl.cd = DASH + DCD; snd(300, .12, 'triangle', .04, 620); }
+  if((keys.shift || keys[' '] || touchDash) && pl.cd <= 0){ pl.dash = DASH; pl.cd = DASH + DCD; snd(300, .12, 'triangle', .04, 620); }
+  touchDash = 0;
   if(pl.dash > 0){                                  // gallop: committed, and it breaks things
     pl.dash--;
     const vx = Math.cos(pl.dir), vy = Math.sin(pl.dir);
@@ -40,6 +45,10 @@ function step(){
   } else {
     let vx = (keys.d || keys.arrowright ? 1 : 0) - (keys.a || keys.arrowleft ? 1 : 0);
     let vy = (keys.s || keys.arrowdown  ? 1 : 0) - (keys.w || keys.arrowup   ? 1 : 0);
+    if(stick){                                       // the thumbstick, if a finger is down
+      const sx = stick.x - stick.ox, sy = stick.y - stick.oy, sd = Math.hypot(sx, sy);
+      if(sd > 9){ vx = sx/sd; vy = sy/sd; }
+    }
     if(vx || vy){
       const m = SPD / Math.hypot(vx, vy);
       pl.dir = Math.atan2(vy, vx);
@@ -224,7 +233,7 @@ function step(){
       if(e.t === 'K'){ pl.keys++; part(e.x, e.y, 18, '#ffd84d', 3, 30); tune([700, 1000], 70); }
       else if(e.t === 'H'){ if(pl.hp < 3){ pl.hp++; part(e.x, e.y, 18, '#ff5470', 3, 30); tune([600, 900], 70); } else e.hp = 1; }
       else if(e.t === 'R'){ part(e.x, e.y, 30, BANDS[pl.shards % 7], 4, 44); pl.shards++; tune([600, 800, 1000, 1300], 60); }
-      else if(e.t === 'P'){ pl.prism = 1; part(e.x, e.y, 50, 0, 4.5, 60, 4); shake = 8; tune([523, 784, 1047, 1568], 90, 'triangle', .08); }
+      else if(e.t === 'P'){ pl.prism = 1; pl.pch = PMAX; part(e.x, e.y, 50, 0, 4.5, 60, 4); shake = 8; tune([523, 784, 1047, 1568], 90, 'triangle', .08); }
     }
   }
   if(tick % 180 === 0) ents = room.ents = ents.filter(e => e.hp || e.t !== 'L');

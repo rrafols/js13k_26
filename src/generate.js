@@ -45,6 +45,12 @@ function gen(seed, len){
       box(m, a, 2, a + 2, 2, '#'); m[1][a] = '7'; m[1][a + 3] = '\\';
       return 1;
     }
+    else if(k === 'chroma'){                         // a lock that wants one channel
+      const i = ri(3), door = '!@$'[i], glass = 'rgb'[i];
+      box(m, 12, 1, 12, ROWS - 2, '#');
+      m[6][12] = door; m[6][10] = glass;              // the glass that makes its colour
+      return 0;
+    }
     else if(k === 'sledge'){                         // shove the mirror into the lane
       const a = 4 + ri(4);
       box(m, a, 2, a + 2, 2, '#'); m[1][a] = '7';
@@ -73,7 +79,7 @@ function gen(seed, len){
     return 0;
   };
   const pool = ['water','water','crack','crystals','torch','mirror','prism','filter',
-                'lens','sledge','plateau','blocks','combat'];
+                'lens','sledge','chroma','plateau','blocks','combat'];
   const dun = [];
   for(let i = 0; i < len; i++){
     const m = blankRoom(), links = {}, last = i === len - 1;
@@ -125,6 +131,25 @@ function gen(seed, len){
   for(let k = 2; k--;){                              // and a couple loose in the chain
     const i = 1 + ri(Math.max(1, len - 3));
     if(drop(dun[i].m, 'R', 3, 20)) goal++;
+  }
+  // Sigils: two crystals in different rooms, and the door they open somewhere
+  // else, so a generated run also has an objective bigger than one screen.
+  let host = -1;
+  for(let tr = 0; tr < 14 && host < 0; tr++){
+    const h = 1 + ri(Math.max(1, len - 3)), m2 = dun[h].m;
+    let clear = 1;                                   // never build over what is already there
+    for(let r = 8; r <= 11; r++) for(let c = 18; c <= 21; c++) if(m2[r][c] !== '.') clear = 0;
+    if(clear) host = h;
+  }
+  if(host >= 0){
+    const m2 = dun[host].m;
+    box(m2, 19, 8, 21, 8, '#'); box(m2, 18, 9, 18, 11, '#');
+    m2[8][20] = '|'; m2[10][20] = 'R';
+    goal++;
+  }
+  for(let k = 2, guard = 0; k > 0 && guard < 20; guard++){
+    const i = 1 + ri(Math.max(1, len - 3));
+    if(i !== host && drop(dun[i].m, 'S', 3, 20)) k--;
   }
   dun.forEach(d => d.m = d.m.map(r => r.join('')));
   dun.goal = goal;

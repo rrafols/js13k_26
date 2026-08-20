@@ -130,6 +130,22 @@ the grid and already bounced.
   in cold, and ends on a card with time, best, colours, rooms and mode. Dying
   now ends a run properly instead of silently restarting it.
 
+## Built since (colour as a key)
+
+- **Horn-as-prism** — a full charge splits into red, green and blue, three
+  charges that refill over time. Colour is now portable, not tied to prism
+  tiles.
+- **Colour-locked doors** — `!` `@` `%` `$` `&` `*` `=` want masks 1..7. A shut
+  door stops light but still takes it on the face, which is what lets it open.
+  Yellow doors need two beams crossing.
+- **Sun sigils** — three crystals in three different rooms open one vault door
+  somewhere else: the first objective that does not fit on a single screen.
+- **Touch controls** — left half thumbstick, right half aim and charge, second
+  finger gallops.
+- **Teaching pass** — one hint per room on first entry, Story mode only.
+- **Sixteen rooms** — Chromatic Locks, Sigil Terrace and The Sunken Vault are
+  new; the chain now branches three ways.
+
 ## Still on the shelf
 
 1. **Isometric projection** — stage two of the darkness work. Prototype and

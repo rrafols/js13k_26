@@ -1,6 +1,6 @@
 // procedural runs, ramps, roster, modes, furniture
 import { load, helpers } from './harness.mjs'
-const a = load(), { TS, mid, s, shoot, T, done } = helpers(a)
+const a = load(), { TS, mid, s, shoot, T, done, at, go } = helpers(a)
 // ---------- 1. procedural dungeons ----------
 const d1=a.gen(12345,9), d2=a.gen(12345,9), d3=a.gen(999,9);
 T('a seed reproduces its dungeon exactly', JSON.stringify(d1)===JSON.stringify(d2));
@@ -41,7 +41,7 @@ for(let sd=1; sd<=60; sd++){
   const d=a.gen(sd*104729, 7+sd%4);
   d.forEach((r,i)=>{
     const grid=r.m.map(x=>x.split(''));
-    const hard=c=>'#rgb>'.includes(c);            // walls and fixed glass; all else yields
+    const hard=c=>'#rgb>'.includes(c);   // walls and fixed glass; doors all open eventually            // walls and fixed glass; all else yields
     const seen=new Set(), q=[[1,6]];
     if(r.links.s!=null) q.push([3,11]);
     while(q.length){
@@ -62,7 +62,7 @@ T('60 seeds: every door in every room is reachable from the others', unreach.len
 if(unreach.length) console.log('   ', unreach.slice(0,4));
 
 // ---------- 2. ramps ----------
-a.newGame(); a.enter(3,60,262);            // Gallop Hall has a plateau at 20-22 / 9-11
+a.newGame(); a.enter(at('gallop'),60,262);            // Gallop Hall has a plateau at 20-22 / 9-11
 T('plateau is a cliff from below', a.solid(mid(20),mid(10),0)===1);
 T('and walkable once you are up', a.solid(mid(20),mid(10),1)===0);
 shoot(20,6,20,11,280);
@@ -73,15 +73,15 @@ a.pl.y=mid(6);s(2);
 T('stepping off drops you back down', a.pl.z===0);
 
 // ---------- 3. furniture ----------
-a.newGame(); a.enter(3,60,262);
+a.newGame(); a.enter(at('gallop'),60,262);
 const before=a.pl.shards;
 a.pl.x=mid(21);a.pl.y=mid(9);a.pl.z=1;s(2);
 T('a chest on the plateau hands over a shard', a.pl.shards===before+1 && a.map[10][21]==='m');
-a.enter(1,60,262);
+a.enter(at('key'),60,262);
 T('pots block the way', a.solid(mid(3),mid(10))===1);
 shoot(3,8,3,11,200);
 T('a beam smashes a pot', a.map[10][3]==='.');
-a.enter(2,60,262);
+a.enter(at('switch'),60,262);
 T('push block starts at 3,6', a.map[6][3]==='O');
 shoot(1,6,8,6,200);
 T('a block stops a beam', !a.bridged.size && a.bows[0].parts[0].lit.every(id=>+id.split(',')[0]<3));
@@ -90,19 +90,19 @@ const col=a.map[6].indexOf('O');
 T('walking into it shoves it along', a.map[6][3]==='.' && col>3);
 
 // ---------- 4. the roster ----------
-a.enter(3,60,262);
+a.enter(at('gallop'),60,262);
 const ch=a.ents.find(e=>e.t==='A');
 T('Gallop Hall has a charger', !!ch);
 ch.x=a.pl.x+120; ch.y=a.pl.y; a.pl.x=mid(3);a.pl.y=mid(9);ch.x=mid(6);ch.y=mid(9);
 s(60); T('the charger winds up and bolts', ch.ch===1 || ch.stun>0 || !ch.hp);
-a.enter(4,60,262);
+a.enter(at('mirror'),60,262);
 const tu=a.ents.find(e=>e.t==='U');
 T('Mirror Hall has a turret', !!tu);
 a.pl.x=tu.x+120; a.pl.y=tu.y; s(220);
 T('it lobs bubbles', a.ents.some(e=>e.t==='o'));
-a.enter(9,60,262);
+a.enter(at('approach'),60,262);
 T('Storm Approach has a bridge weevil', a.ents.some(e=>e.t==='W'));
-a.newGame(); a.enter(11,60,262);
+a.newGame(); a.enter(at('sun gate'),60,262);
 const th=a.ents.find(e=>e.t==='V');
 T('a colour thief guards the Sun Gate', !!th && th.hp===3);
 th.x=a.pl.x+10; th.y=a.pl.y; s(3);
@@ -128,18 +128,18 @@ a.start('daily');
 T('the daily is the same dungeon twice', a.rooms.map(r=>r.name).join()===seedA);
 a.start('story'); s(120);
 T('the run clock ticks', a.runF>100);
-a.pl.shards=7; a.enter(12,60,262);
+a.pl.shards=7; a.enter(at('arena'),60,262);
 const B=a.ents.find(e=>e.t==='B'); B.hp=1; B.iv=0; B.x=mid(12); B.y=mid(6);
 shoot(9,4,13,4,280);
 a.pl.x=mid(12);a.pl.y=mid(6); s(2);
 T('winning saves a best time', a.won>0 && a.best.story>0);
 const first=a.best.story;
-a.start('story'); s(60); a.pl.shards=7; a.enter(12,60,262);
+a.start('story'); s(60); a.pl.shards=7; a.enter(at('arena'),60,262);
 T('a slower run does not overwrite it', a.best.story===first);
 a.scene='title'; a.title();
 T('title screen renders', true);
 // ---------- light-reactive enemies ----------
-a.newGame(); a.enter(5, 60, 262);                 // Drained Vault: dark
+a.newGame(); a.enter(at('drained'), 60, 262);                 // Drained Vault: dark
 const slime = { t:'E', x:mid(3), y:mid(9), hp:1, w:0 };
 a.ents.push(slime);
 a.draw();                                          // fills the light map
@@ -151,14 +151,14 @@ slime.x = mid(3); slime.y = mid(9);
 a.pl.x = mid(3); a.pl.y = mid(9) - 30; a.pl.dir = 1.5708; a.pl.cd = 0;
 s(6, { shift:1 });
 T('in your light it can be run down', slime.hp === 0);
-a.newGame(); a.enter(3, 60, 262);                 // a room the storm never drank
+a.newGame(); a.enter(at('gallop'), 60, 262);                 // a room the storm never drank
 const bright = a.ents.find(e => e.t === 'E');
 bright.x = a.pl.x + 30; bright.y = a.pl.y; a.pl.dir = 0; a.pl.cd = 0;
 s(6, { shift:1 });
 T('a lit room behaves exactly as before', bright.hp === 0);
 
 // ---------- pushable mirrors ----------
-a.newGame(); a.enter(4, 60, 262);                 // Mirror Hall has one at 11,3
+a.newGame(); a.enter(at('mirror'), 60, 262);                 // Mirror Hall has one at 11,3
 T('the movable mirror is where it belongs', a.map[3][11] === ')');
 T('and it is solid', a.solid(mid(11), mid(3)) === 1);
 a.pl.x = mid(9); a.pl.y = mid(3); a.pl.dir = 0; a.pl.push = 0;
@@ -171,5 +171,30 @@ T('and it still bends the beam once moved', b0.segs.length > 1);
 
 // ---------- colourblind pips ----------
 T('pips are off until asked for', a.cb === 0 || a.cb === false);
+
+// ---------- touch ----------
+// The handlers take a real TouchEvent shape, so this drives them the way a
+// phone would: one finger on the left to walk, one on the right to throw.
+a.newGame(); a.scene = 'play'; a.enter(at('falls'), 60, 262);   // past the intro card
+const touch = (id, x, y) => ({ identifier:id, clientX:x, clientY:y });
+const ev = list => ({ changedTouches:list, preventDefault(){} });
+const x0 = a.pl.x;
+a.cv.ontouchstart(ev([touch(1, 100, 400)]));
+a.cv.ontouchmove(ev([touch(1, 190, 400)]));         // push the stick right
+s(40);
+T('the left half walks the unicorn', a.pl.x > x0 + 40);
+a.window.ontouchend(ev([touch(1, 190, 400)]));
+const x1 = a.pl.x; s(20);
+T('lifting the finger stops it', Math.abs(a.pl.x - x1) < 3);
+a.cv.ontouchstart(ev([touch(2, 800, 300)]));        // right half: charge
+s(20);
+T('the right half charges a throw', a.charging === 1);
+a.window.ontouchend(ev([touch(2, 800, 300)]));
+T('and releasing throws it', a.bows.length === 1);
+a.cv.ontouchstart(ev([touch(3, 100, 400)]));
+a.pl.cd = 0;
+a.cv.ontouchstart(ev([touch(4, 200, 420)]));        // second finger on the left
+s(2);
+T('a second finger gallops', a.pl.dash > 0);
 
 done();

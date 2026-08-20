@@ -20,6 +20,9 @@ function solid(x, y, z){
   if(t === '^') return z || ramped.has(c + ',' + r) ? 0 : 1;   // cliff unless you ramp it
   if(t === 'G') return gateOpen() ? 0 : 1;
   if(t === 'Y') return pl.shards >= shardGoal ? 0 : 1;
+  if(DOOR[t]) return room.lit.has(c + ',' + r) ? 0 : 1;
+  if(t === '|') return sig >= sigNeed ? 0 : 1;
+  if(t === 'S') return 1;
   if(t === '~') return bridged.has(c + ',' + r) ? 0 : 1;
   return 0;
 }

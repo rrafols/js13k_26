@@ -1,7 +1,7 @@
 // Can a competent player actually clear Storm Approach with the clouds eating bridges?
 import { load, helpers } from './harness.mjs'
-const a = load(), { TS, mid, s, shoot, T, done } = helpers(a)
-a.newGame(); a.enter(9,60,262);
+const a = load(), { TS, mid, s, shoot, T, done, at, go } = helpers(a)
+a.newGame(); a.enter(at('approach'),60,262);
 const startHp=a.pl.hp;
 let drowned=0, thrown=0;
 a.pl.y=262;

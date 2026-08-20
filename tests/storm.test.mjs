@@ -1,25 +1,28 @@
 import { load, helpers } from './harness.mjs'
-const a = load(), { TS, mid, s, shoot, T, done } = helpers(a)
+const a = load(), { TS, mid, s, shoot, T, done, at, go } = helpers(a)
 const R=()=>a.rooms.indexOf(a.room);
 
 a.newGame();
-T('13 rooms', a.rooms.length===13);
-T('exactly 7 shards exist in the dungeon',
-  a.SRC.reduce((n,r)=>n+r.m.join('').split('R').length-1,0)===7);
+T('the dungeon has its rooms', a.rooms.length > 12);
+T('at least as many shards exist as the door demands', (() => {
+  const all = a.SRC.map(r => r.m.join('')).join('');
+  const have = (all.split('R').length - 1) + (all.split('M').length - 1);
+  return have >= a.shardGoal;
+})());
 T('audio degrades silently with no AudioContext', true);
 
 // ---- shards + sun gate ----
-a.enter(11,60,262);
+a.enter(at('sun gate'),60,262);
 T('sun gate is shut without the seven colours', a.solid(mid(23),mid(6))===1);
 a.pl.shards=7;
 T('sun gate opens with all seven', a.solid(mid(23),mid(6))===0);
 a.pl.shards=0;
-a.enter(1,60,262);
+a.enter(at('key'),60,262);
 const sh=a.ents.find(e=>e.t==='R'); a.pl.x=sh.x;a.pl.y=sh.y; s(2);
 T('shard pickup counts', a.pl.shards===1 && !sh.hp);
 
 // ---- prism horn ----
-a.enter(6,60,262);
+a.enter(at('sanctum'),60,262);
 const pr=a.ents.find(e=>e.t==='P');
 T('prism sits on the moated island', !!pr);
 shoot(3,6,10,6); T('one beam before the prism', a.bows[0].parts.length===1);
@@ -29,7 +32,7 @@ shoot(3,6,10,6,280); T('full charge forks into three', a.bows[a.bows.length-1].p
 shoot(3,6,10,6,140); T('a short charge stays single', a.bows[a.bows.length-1].parts.length===1);
 
 // ---- rain clouds ----
-a.enter(9,60,262);
+a.enter(at('approach'),60,262);
 const cl=a.ents.filter(e=>e.t==='C');
 T('two rain clouds in Storm Approach', cl.length===2);
 shoot(8,6,16,6);
@@ -39,14 +42,14 @@ a.pl.x=cl[0].x-20;a.pl.y=cl[0].y;a.pl.dir=0; s(4,{shift:1});
 T('gallop pops a rain cloud', !cl[0].hp);
 
 // ---- north/south rooms ----
-a.enter(3,mid(3),mid(1)); a.pl.x=mid(3); s(40,{w:1});
+a.enter(at('gallop'),mid(3),mid(1)); a.pl.x=mid(3); s(40,{w:1});
 T('north exit leads to the Hidden Grotto', R()===10);
 T('grotto shard is walled in', a.map[6][11]==='R' || a.ents.some(e=>e.t==='R'));
 a.pl.x=mid(11);a.pl.y=mid(3);a.pl.dir=1.5708; s(20,{shift:1});
 T('gallop breaks into the vault', a.map[4][11]==='.');
 
 // ---- the storm ----
-a.enter(12,60,262);
+a.enter(at('arena'),60,262);
 const B=a.ents.find(e=>e.t==='B');
 T('storm has 5 hp', B.hp===5);
 B.x=mid(12); B.y=mid(6); B.tx=mid(12); B.ty=mid(6);
@@ -73,7 +76,7 @@ a.pl.x=mid(12);a.pl.y=mid(6); s(2);
 T('touching it wins', a.won>0);
 
 // lightning still strikes
-a.newGame(); a.enter(12,60,262);
+a.newGame(); a.enter(at('arena'),60,262);
 const B2=a.ents.find(e=>e.t==='B'); B2.x=600;B2.y=200; a.pl.x=200;a.pl.y=200;
 let sawBolt=0;
 for(let i=0;i<170;i++){ a.step(); if(a.ents.some(e=>e.t==='L'&&e.hp)) sawBolt=1; }

@@ -1,9 +1,9 @@
 import { load, helpers } from './harness.mjs'
-const a = load(), { TS, mid, s, shoot, T, done } = helpers(a)
+const a = load(), { TS, mid, s, shoot, T, done, at, go } = helpers(a)
 const room=()=>a.rooms.indexOf(a.room);
 
 a.newGame();
-T('starts in Rainbow Falls', a.rooms.length===13 && a.room.name==='Rainbow Falls');
+T('starts in Rainbow Falls', a.rooms.length > 12 && a.room.name==='Rainbow Falls');
 
 // --- fading rainbows ---
 shoot(9,6,16,6); s(5);
@@ -66,7 +66,7 @@ a.draw();
 // A diagonal throw used to leave a staircase of tiles touching only at their
 // corners; the hitbox is wider than that corner, so the unicorn wedged.
 function orphans(deg){
-  a.newGame(); a.enter(0, 60, 262);
+  a.newGame(); a.enter(at('falls'), 60, 262);
   a.pl.x = mid(9); a.pl.y = mid(6);
   const th = deg*Math.PI/180;
   a.aim.x = a.pl.x + Math.cos(th)*300; a.aim.y = a.pl.y + Math.sin(th)*300;
@@ -88,5 +88,45 @@ T('a 45 degree bridge is walkable end to end', orphans(45).length === 0 && orpha
 let worst = 0;
 for(let d = -60; d <= 60; d += 3) worst = Math.max(worst, orphans(d).length);
 T('no throw angle leaves a tile you can only reach diagonally', worst === 0);
+
+// ---------- the authored dungeon has to be walkable ----------
+// Anything you can open, break, bridge, ramp or shove counts as passable,
+// because you carry the tools for all of them. Only real walls and fixed glass
+// stop the flood.
+const HARD = '#/\\()>rgb+' + "'";
+function reach(r){
+  const g = r.m.map(x => x.split(''));
+  const start = [];
+  if(r.links.w != null) start.push([1, 6]);
+  if(r.links.e != null) start.push([22, 6]);
+  if(r.links.n != null) start.push([3, 1]);
+  if(r.links.s != null) start.push([3, 11]);
+  if(!start.length) start.push([r.start[0], r.start[1]]);
+  start.push([r.start[0], r.start[1]]);
+  const seen = new Set(), q = [...start];
+  while(q.length){
+    const [c, rr] = q.pop(), k = c + ',' + rr;
+    if(c < 0 || rr < 0 || c > 23 || rr > 12 || seen.has(k)) continue;
+    if(HARD.includes(g[rr][c]) || (g[rr][c] >= '1' && g[rr][c] <= '7') || g[rr][c] === 'S') continue;
+    seen.add(k);
+    q.push([c+1, rr], [c-1, rr], [c, rr+1], [c, rr-1]);
+  }
+  return seen;
+}
+let broken = [];
+for(const r of a.SRC){
+  const seen = reach(r), near = (c, rr) =>
+    [[1,0],[-1,0],[0,1],[0,-1]].some(([dc, dr]) => seen.has((c+dc) + ',' + (rr+dr)));
+  if(r.links.w != null && !seen.has('1,6')) broken.push(r.name + ' west door');
+  if(r.links.e != null && !seen.has('22,6')) broken.push(r.name + ' east door');
+  if(r.links.n != null && !seen.has('3,1')) broken.push(r.name + ' north door');
+  if(r.links.s != null && !seen.has('3,11')) broken.push(r.name + ' south door');
+  r.m.forEach((row, rr) => [...row].forEach((t, c) => {
+    if('RKHP'.includes(t) && !seen.has(c + ',' + rr)) broken.push(r.name + ' ' + t + ' at ' + c + ',' + rr);
+    if('MN'.includes(t) && !near(c, rr)) broken.push(r.name + ' chest at ' + c + ',' + rr);
+  }));
+}
+T('every door and every treasure in the dungeon can be reached', broken.length === 0);
+if(broken.length) console.log('   ', broken.slice(0, 6));
 
 done();

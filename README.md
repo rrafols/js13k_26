@@ -19,6 +19,9 @@ WASD to move, hold the mouse to charge a rainbow and release to throw it,
 shift to gallop, R to restart, M to mute, C for colourblind pips, esc for the
 menu. Best times per mode are kept in localStorage.
 
+**Touch:** the left half of the screen is a thumbstick, the right half aims and
+charges, and a second finger on the left gallops.
+
 **Colourblind support:** press C and every colour in the game is also spelled
 out as three dots — red, green, blue, filled if that channel is present. A red
 crystal reads white-empty-empty, a yellow one white-white-empty. The setting is
@@ -32,6 +35,8 @@ A thrown rainbow is light with a colour mask (red/green/blue). It:
 - **ramps** up `^` plateaus so you can climb them
 - **lights** crystals — each wants one exact colour
 - **bounces** off `/` and `\` mirrors, and only a bounced beam wounds the storm
+- **unlocks colour doors**, which each want one exact channel — and mixing two
+  beams on one door opens a lock no single beam can
 - **splits** at a prism into its three channels, fanned slightly apart and
   drawn slimmer, because refracted light is weaker than the beam that fed it
 - **carries further** through a lens, which adds five tiles to whatever range
@@ -62,6 +67,18 @@ Sources are ordinary `<script>` files, not modules: they share one scope and
 run in the order `index.html` lists them, so `npm run build` is the only step
 between editing and shipping — open `index.html` directly and the game runs
 unbundled.
+
+## The dungeon
+
+Sixteen rooms: a main chain with three side rooms hanging off it, a vault
+behind a door that three **sun sigils** in three different rooms unlock, and
+the storm at the end. Story mode teaches — one line on entering a room the
+first time, naming the verb that room is about. Daily and Random skip the
+hints; they are for people who already know.
+
+The **Prism Horn** now fires real colour: a full charge splits into red, green
+and blue, three shots before it has to refill. That is what makes colour doors
+possible anywhere rather than only where a prism tile sits.
 
 ## Build
 

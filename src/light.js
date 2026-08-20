@@ -12,7 +12,10 @@ function cast(x0, y0, dir, len, real, col, depth, out, bnc, skip){
     const s = Math.min(4, rem);
     x += dx*s; y += dy*s; rem -= s;
     const c = x/TS | 0, r = y/TS | 0, t = at(c, r), id = c + ',' + r;
-    if('#XDO'.includes(t) || (t === 'G' && !gateOpen()) || (t === 'Y' && pl.shards < shardGoal)){
+    if('#XDO'.includes(t) || (t === 'G' && !gateOpen()) || (t === 'Y' && pl.shards < shardGoal)
+       || (DOOR[t] && !room.lit.has(id))
+       || (t === '|' && sig < sigNeed)){             // a shut door stops light too
+      if(DOOR[t] && id !== lastT) lit.push(id);       // but the light lands on its face
       x -= dx*s; y -= dy*s; return end();
     }
     if('/\\()'.includes(t) && bounces < 6 && id !== lastM){
@@ -118,12 +121,19 @@ function thiefHit(e){                                // the colour thief
   }
 }
 function fire(){
-  const fan = pl.prism && charge > MAXLEN - 25;      // Prism Horn forks a full charge
+  // A full charge through the horn splits white into its three channels, one
+  // charge at a time. Anything less is an ordinary white beam, so the choice is
+  // reach and colour against a horn that has to refill.
+  const fan = pl.prism && pl.pch > 0 && charge > MAXLEN - 25;
   const a0 = Math.atan2(aim.y - pl.y, aim.x - pl.x);
   const parts = [];
   const col = (7 & ~pl.stolen) || 7;                 // the thief takes a channel with it
-  (fan ? [-.16, 0, .16] : [0]).forEach(a => cast(pl.x, pl.y, a0 + a, charge, 1, col, 0, parts, 0));
-  if(fan) parts.forEach(p => p.thin = 1);
+  if(fan){
+    pl.pch--; pl.prech = PRECH;
+    [[1, -.16], [2, 0], [4, .16]].forEach(([bit, a]) => {
+      if(col & bit) cast(pl.x, pl.y, a0 + a, charge, 1, bit, 0, parts, 0);
+    });
+  } else cast(pl.x, pl.y, a0, charge, 1, col, 0, parts, 0);
   bows.push({parts, life:BOWLIFE});
   if(bows.length > MAXBOWS) bows.shift();
   resolve();
@@ -149,6 +159,16 @@ function resolve(){
       room.lit.add(id); room.go = null;
       part(c*TS + 20, r*TS + 20, 26, MASKC[m], 3.6, 36);
       snd(620 + m*120, .28, 'triangle', .06, 1700);
+    }
+    if(t === 'S' && !room.lit.has(id)){              // sigil: any colour will do
+      room.lit.add(id); sig++;
+      part(c*TS + 20, r*TS + 20, 40, 0, 4.4, 46);
+      tune([700, 900, 1100, 1400], 70, 'triangle', .07);
+    }
+    if(DOOR[t] === m && !room.lit.has(id)){          // a door that wanted this colour
+      room.lit.add(id);
+      part(c*TS + 20, r*TS + 20, 34, MASKC[m], 4, 40);
+      tune([500, 700, 900], 70, 'triangle', .06);
     }
   });
   if(room.drain > 0){                                // light you route repaints the room,

@@ -18,7 +18,7 @@ const API = `;var api={
   get LMAP(){return LMAP},
   get DUN(){return DUN}, get scene(){return scene}, set scene(v){scene=v},
   get mode(){return mode}, get runF(){return runF}, get best(){return best},
-  get shardGoal(){return shardGoal}, get cb(){return cb}, get endWin(){return endWin}, get pl(){return pl}, get map(){return map},
+  get shardGoal(){return shardGoal}, get charging(){return charging}, get stick(){return stick}, get sig(){return sig}, get sigNeed(){return sigNeed}, get tipT(){return tipT}, get cb(){return cb}, get endWin(){return endWin}, get pl(){return pl}, get map(){return map},
   get room(){return room}, get rooms(){return rooms},
   get ents(){return ents}, set ents(v){ents=v},
   get bows(){return bows}, get bridged(){return bridged}, get ramped(){return ramped},
@@ -42,7 +42,7 @@ export function load () {
     requestAnimationFrame: () => {},
     localStorage: { get ru13 () { return store.v }, set ru13 (v) { store.v = v } },
     document: {
-      getElementById: () => ({
+      getElementById: () => (ctx.__cv = {
         getContext: () => stub(),
         getBoundingClientRect: () => ({ left: 0, top: 0, width: 960, height: 564 })
       }),
@@ -52,6 +52,8 @@ export function load () {
   ctx.window = ctx
   createContext(ctx)
   runInContext(code + API, ctx)
+  ctx.api.cv = ctx.__cv
+  ctx.api.window = ctx
   return ctx.api
 }
 
@@ -75,5 +77,8 @@ export function helpers (a) {
     console.log(state.fails ? state.fails + ' FAILURES' : 'all green')
     process.exit(state.fails ? 1 : 0)
   }
-  return { TS, mid, s, shoot, T, done, state }
+  // Rooms move as the dungeon is redesigned; address them by name.
+  const at = name => a.SRC.findIndex(r => r.name.toLowerCase().includes(name.toLowerCase()))
+  const go = (name, x = 60, y = 262) => a.enter(at(name), x, y)
+  return { TS, mid, s, shoot, T, done, state, at, go }
 }
