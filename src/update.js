@@ -19,9 +19,10 @@ function step(){
   if(charging) charge = Math.min(MAXLEN, charge + 4);
   if(pl.inv > 0) pl.inv--;
   if(pl.cd > 0) pl.cd--;
-  if(pl.prism && pl.pch < PMAX && --pl.prech <= 0){  // the horn drinks the light back in
-    pl.pch++; pl.prech = PRECH;
-    snd(900 + pl.pch*180, .16, 'triangle', .04, 1600);
+  if(!pl.prism && pl.prech > 0 && --pl.prech <= 0 && prismEnt){
+    prismEnt.hp = 1;                                 // the horn has reformed where it stood
+    if(ents.includes(prismEnt)) part(prismEnt.x, prismEnt.y, 40, '#dff3ff', 4, 50);
+    tune([523, 784, 1047], 90, 'triangle', .06);
   }
 
   bows.forEach(b => b.life--);                      // rainbows fade, bridges go with them
@@ -102,6 +103,15 @@ function step(){
       if(ct === 'M'){ pl.shards++; part(x, y, 34, 0, 4, 44); }
       else { pl.keys++; part(x, y, 26, '#ffd84d', 3.4, 36); }
       shake = 6; tune([523, 784, 1047, 1568], 90, 'triangle', .08);
+      break;
+    }
+  }
+  for(const [dc, dr] of [[1,0],[-1,0],[0,1],[0,-1]]){   // a coloured lock beside you
+    const lt = at(c + dc, r + dr), bit = LOCK[lt];
+    if(bit && pl.kk[bit] > 0){
+      pl.kk[bit]--; map[r + dr][c + dc] = '.';
+      part((c + dc)*TS + 20, (r + dr)*TS + 20, 26, MASKC[bit], 3.6, 34);
+      tune([500, 800, 1100], 70);
       break;
     }
   }
@@ -231,9 +241,14 @@ function step(){
     } else if(d < 24){                               // pickups
       e.hp = 0;
       if(e.t === 'K'){ pl.keys++; part(e.x, e.y, 18, '#ffd84d', 3, 30); tune([700, 1000], 70); }
+      else if(KEY[e.t]){
+        const bit = KEY[e.t];
+        pl.kk[bit] = (pl.kk[bit] || 0) + 1;
+        part(e.x, e.y, 22, MASKC[bit], 3.2, 34); tune([700, 1000, 1300], 60);
+      }
       else if(e.t === 'H'){ if(pl.hp < 3){ pl.hp++; part(e.x, e.y, 18, '#ff5470', 3, 30); tune([600, 900], 70); } else e.hp = 1; }
       else if(e.t === 'R'){ part(e.x, e.y, 30, BANDS[pl.shards % 7], 4, 44); pl.shards++; tune([600, 800, 1000, 1300], 60); }
-      else if(e.t === 'P'){ pl.prism = 1; pl.pch = PMAX; part(e.x, e.y, 50, 0, 4.5, 60, 4); shake = 8; tune([523, 784, 1047, 1568], 90, 'triangle', .08); }
+      else if(e.t === 'P'){ pl.prism = 1; pl.pch = PMAX; pl.prech = 0; prismEnt = e; part(e.x, e.y, 50, 0, 4.5, 60, 4); shake = 8; tune([523, 784, 1047, 1568], 90, 'triangle', .08); }
     }
   }
   if(tick % 180 === 0) ents = room.ents = ents.filter(e => e.hp || e.t !== 'L');

@@ -26,27 +26,43 @@
 <script>
 // Dev harness: boots the real game and drops you into any room with whatever
 // you need, so a dark room or the boss is one URL away instead of a playthrough.
-//   ?room=5          0 Falls 1 Key 2 Switch 3 Gallop 4 Mirror 5 Drained Vault
-//                    6 Sanctum 7 Prism Ward 8 Filter Gallery 9 Approach
-//                    10 Grotto 11 Sun Gate 12 Storm Arena
-//   ?shards=7&prism=1&hp=3     start kitted out
-//   ?mode=random&seed=1234     a generated run instead
-// [ and ] step through rooms.
+//
+//   ?room=9              index into the room list printed below
+//   ?prism=1             carry the horn, charged (prism=2 for two splits left)
+//   ?shards=7            colours in hand      ?sig=1  all sun sigils lit
+//   ?hp=3  ?cb=1         hearts, colourblind pips
+//   ?mode=random&seed=7  a generated run instead of the story
+//
+// [ and ] step through rooms. This page skips the intro card on purpose.
 const Q = new URLSearchParams(location.search);
-const go = n => {
-  n = (n + SRC.length) % SRC.length;
-  enter(n, 60, 262);
-  hint.textContent = `room ${n} — ${SRC[n].name}   drain ${room.drain}   [ ] to move   (dev page, not the game)`;
-};
+const num = (k, d) => Q.get(k) === null ? d : +Q.get(k);
+
 start(Q.get('mode') || 'story');
 if (Q.get('seed')) { seed = +Q.get('seed'); DUN = gen(seed, 7 + seed % 4); shardGoal = DUN.goal; newGame(); }
-pl.shards = +(Q.get('shards') ?? 0);
-pl.prism = +(Q.get('prism') ?? 0);
-pl.hp = +(Q.get('hp') ?? 3);
-let cur = +(Q.get('room') ?? 5);   // 'at' is the game's tile lookup
-go(cur);
+scene = 'play';                                   // straight into the room
+
+const kit = () => {
+  pl.shards = num('shards', 0);
+  pl.hp = num('hp', 3);
+  cb = num('cb', 0);
+  const p = num('prism', 0);
+  pl.prism = p ? 1 : 0;
+  pl.pch = p ? Math.min(PMAX, p === 1 ? PMAX : p) : 0;   // prism=1 means fully charged
+  if (num('sig', 0)) { sig = sigNeed; rooms.forEach(r => r.m.forEach((row, y) =>
+    [...row].forEach((t, x) => { if (t === 'S') r.lit.add(x + ',' + y); }))); }
+};
+
+const go = n => {
+  cur = (n + SRC.length) % SRC.length;
+  enter(cur, 60, 262);
+  kit();                                          // enter() can respawn things, so re-kit after
+  hint.textContent = `[${cur}] ${SRC[cur].name}   drain ${room.drain}   horn ${pl.pch}/${PMAX}`
+    + `   sigils ${sig}/${sigNeed}   ·   [ ] to change room   ·   ${SRC.map((r, i) => i + ':' + r.name).join('  ')}`;
+};
+let cur = 0;
+go(num('room', 5));
 addEventListener('keydown', e => {
-  if (e.key === '[') go(--cur);
-  if (e.key === ']') go(++cur);
+  if (e.key === '[') go(cur - 1);
+  if (e.key === ']') go(cur + 1);
 });
 </script>

@@ -1,8 +1,13 @@
 // ---------- state ----------
 const SPD = 2.7, MINLEN = 80, MAXLEN = 280, MAXBOWS = 3, BOWLIFE = 420, LENS = 200;
-const PMAX = 3, PRECH = 260;                         // prism charges, and frames to refill one
+const PMAX = 3, PRESP = 3000;                        // three splits, then a long walk back
+let prismEnt = null;                                 // the horn on its pedestal, wherever it is
 // A colour door opens for exactly one mask, the same rule a crystal follows.
 const DOOR = {'!':1, '@':2, '%':3, '$':4, '&':5, '*':6, '=':7};
+// Coloured keys and their locks. A lock never sits on the way out of a room --
+// only on side vaults -- and its key always lies in a room you reach first, so
+// there is no way to lock yourself out of the exit.
+const KEY = {x:1, y:2, z:4}, LOCK = {'[':1, ']':2, '{':4};
 const DASH = 13, DSPD = 6.6, DCD = 34;
 let shardGoal = 7;
 const BANDS = ['#ff4d5e','#ff9c3d','#ffe14d','#5ddb62','#4db6ff','#5a5aff','#b04dff'];
@@ -33,13 +38,13 @@ function start(m){
   if(m === 'rush') pl.prism = 1;
 }
 function newGame(){
-  runF = 0; sig = 0;
+  runF = 0; sig = 0; prismEnt = null;
   // Sigil crystals are scattered across rooms and open one door somewhere else,
   // so a run has at least one objective that does not fit on a single screen.
   sigNeed = DUN.reduce((n, r) => n + r.m.join('').split('S').length - 1, 0);
   rooms = DUN.map(r => ({...r, m:r.m.map(s => s.split('')), ents:null, drain:r.drain || 0,
                          seen:0, lit:new Set(), paint:new Map(), go:null}));
-  pl = {x:0, y:0, r:13, dir:0, hp:3, keys:0, shards:0, prism:0, pch:0, prech:0, inv:0, dash:0, cd:0, z:0, stolen:0, push:0};
+  pl = {x:0, y:0, r:13, dir:0, hp:3, keys:0, kk:{}, shards:0, prism:0, pch:0, prech:0, inv:0, dash:0, cd:0, z:0, stolen:0, push:0};
   won = 0; aim = {x:600, y:300}; charge = 0; charging = 0; shake = 0;
   enter(0, SRC[0].start[0]*TS + TS/2, SRC[0].start[1]*TS + TS/2);
 }
@@ -48,7 +53,7 @@ function enter(i, x, y){
   if(!room.ents){                                   // spawn contents once per room
     room.ents = [];
     map.forEach((row, r) => row.forEach((t, c) => {
-      if('EKHRPCBAUWV'.includes(t)){
+      if('EKHRPCBAUWVxyz'.includes(t)){
         room.ents.push({t, x:c*TS + TS/2, y:r*TS + TS/2, hx:c*TS + TS/2, hy:r*TS + TS/2,
                         hp:t === 'B' ? 5 : t === 'V' ? 3 : 1, w:Math.random()*7});
         const nb = [[1,0],[-1,0],[0,1],[0,-1]].map(([a,b]) => (map[r+b] || [])[c+a]);

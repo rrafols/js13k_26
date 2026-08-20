@@ -76,9 +76,13 @@ the storm at the end. Story mode teaches — one line on entering a room the
 first time, naming the verb that room is about. Daily and Random skip the
 hints; they are for people who already know.
 
-The **Prism Horn** now fires real colour: a full charge splits into red, green
-and blue, three shots before it has to refill. That is what makes colour doors
-possible anywhere rather than only where a prism tile sits.
+The **Prism Horn** fires real colour: a full charge splits into red, green and
+blue. It holds three splits and then it is **spent** — the horn leaves you and
+reforms on its pedestal a long minute later, and you have to go back for it.
+The HUD shows the three charges and, once it is gone, how far along the reform
+is; the minimap marks the room it is waiting in. That cost is what makes colour
+worth planning: Chromatic Locks needs exactly three splits if you do not waste
+one.
 
 ## Build
 

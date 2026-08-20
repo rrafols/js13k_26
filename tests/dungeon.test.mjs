@@ -129,4 +129,61 @@ for(const r of a.SRC){
 T('every door and every treasure in the dungeon can be reached', broken.length === 0);
 if(broken.length) console.log('   ', broken.slice(0, 6));
 
+// ---------- coloured keys can never strand you ----------
+// Two separate promises: a lock never stands between you and a way out of its
+// room, and its key always lies in a room you reach first.
+const KEYCH = {x:1, y:2, z:4}, LOCKCH = {'[':1, ']':2, '{':4};
+
+function auditKeys(dun, label){
+  const problems = [];
+  const dist = new Array(dun.length).fill(Infinity);
+  dist[0] = 0;
+  for(let pass = 0; pass < dun.length; pass++)
+    dun.forEach((r, i) => Object.values(r.links).forEach(j => {
+      if(dist[i] + 1 < dist[j]) dist[j] = dist[i] + 1;
+    }));
+
+  // locks must not cut a room's exits off, so flood with locks as solid walls
+  dun.forEach((r, i) => {
+    const g = r.m.map(x => x.split(''));
+    const solidHere = ch => '#/\\()>rgb+'.includes(ch) || LOCKCH[ch] ||
+                            (ch >= '1' && ch <= '7') || ch === 'S';
+    const seen = new Set(), q = [[r.start[0], r.start[1]]];
+    if(r.links.w != null) q.push([1, 6]);
+    if(r.links.n != null) q.push([3, 1]);
+    if(r.links.s != null) q.push([3, 11]);
+    while(q.length){
+      const [c, rr] = q.pop(), k = c + ',' + rr;
+      if(c < 0 || rr < 0 || c > 23 || rr > 12 || seen.has(k) || solidHere(g[rr][c])) continue;
+      seen.add(k); q.push([c+1, rr], [c-1, rr], [c, rr+1], [c, rr-1]);
+    }
+    if(r.links.e != null && !seen.has('22,6')) problems.push(label + ' ' + i + ': lock blocks the east way out');
+    if(r.links.w != null && !seen.has('1,6')) problems.push(label + ' ' + i + ': lock blocks the west way out');
+    if(r.links.n != null && !seen.has('3,1')) problems.push(label + ' ' + i + ': lock blocks the north way out');
+    if(r.links.s != null && !seen.has('3,11')) problems.push(label + ' ' + i + ': lock blocks the south way out');
+  });
+
+  // and every lock needs a key of its colour, in a room reached no later
+  const keys = {}, locks = [];
+  dun.forEach((r, i) => r.m.forEach(row => [...row].forEach(ch => {
+    if(KEYCH[ch]) (keys[KEYCH[ch]] = keys[KEYCH[ch]] || []).push(dist[i]);
+    if(LOCKCH[ch]) locks.push([LOCKCH[ch], dist[i], i]);
+  })));
+  for(const [bit, d, i] of locks){
+    const have = (keys[bit] || []).filter(kd => kd <= d).length;
+    const used = locks.filter(l => l[0] === bit && l[1] <= d).length;
+    if(have < used) problems.push(label + ' ' + i + ': lock colour ' + bit + ' has no key before it');
+  }
+  return problems;
+}
+
+let keyBad = auditKeys(a.SRC, 'story');
+T('in the story, no lock blocks a way out and every key comes first', keyBad.length === 0);
+if(keyBad.length) console.log('   ', keyBad.slice(0, 4));
+
+let genBad = [];
+for(let sd = 1; sd <= 40; sd++) genBad = genBad.concat(auditKeys(a.gen(sd*7919, 7 + sd % 4), 'seed' + sd));
+T('and the same holds for 40 generated dungeons', genBad.length === 0);
+if(genBad.length) console.log('   ', genBad.slice(0, 4));
+
 done();

@@ -12,7 +12,7 @@ function cast(x0, y0, dir, len, real, col, depth, out, bnc, skip){
     const s = Math.min(4, rem);
     x += dx*s; y += dy*s; rem -= s;
     const c = x/TS | 0, r = y/TS | 0, t = at(c, r), id = c + ',' + r;
-    if('#XDO'.includes(t) || (t === 'G' && !gateOpen()) || (t === 'Y' && pl.shards < shardGoal)
+    if('#XDO'.includes(t) || LOCK[t] || (t === 'G' && !gateOpen()) || (t === 'Y' && pl.shards < shardGoal)
        || (DOOR[t] && !room.lit.has(id))
        || (t === '|' && sig < sigNeed)){             // a shut door stops light too
       if(DOOR[t] && id !== lastT) lit.push(id);       // but the light lands on its face
@@ -129,7 +129,11 @@ function fire(){
   const parts = [];
   const col = (7 & ~pl.stolen) || 7;                 // the thief takes a channel with it
   if(fan){
-    pl.pch--; pl.prech = PRECH;
+    if(--pl.pch <= 0){                               // that was the last split
+      pl.prism = 0; pl.prech = PRESP;
+      part(pl.x, pl.y, 30, '#dff3ff', 3.6, 40);
+      tune([900, 700, 500, 300], 90, 'triangle', .06);
+    }
     [[1, -.16], [2, 0], [4, .16]].forEach(([bit, a]) => {
       if(col & bit) cast(pl.x, pl.y, a0 + a, charge, 1, bit, 0, parts, 0);
     });

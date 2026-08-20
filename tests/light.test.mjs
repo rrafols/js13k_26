@@ -112,18 +112,28 @@ a.newGame(); a.enter(at('locks'), 60, 262); a.pl.prism = 1; a.pl.pch = 3;
 shoot(12, 7, 22, 7, 280);                          // from below, the red arm lands there instead
 T('the wrong arm leaves it shut', a.solid(mid(16), mid(6)) === 1);
 
-// ---------- the horn runs dry ----------
-a.newGame(); a.enter(at('ward'), 60, 262);
-a.pl.prism = 1; a.pl.pch = 3; a.pl.prech = 999;
+// ---------- the horn is spent, not recharged ----------
+a.newGame(); a.enter(at('sanctum'), 60, 262);
+const horn = a.ents.find(e => e.t === 'P');
+a.pl.x = horn.x; a.pl.y = horn.y; s(2);
+T('picking it up gives three splits', a.pl.prism === 1 && a.pl.pch === 3);
+a.enter(at('ward'), 60, 262);
 const chans = () => a.bows[a.bows.length - 1].parts.map(p => p.col).sort().join('');
 shoot(3, 6, 10, 6, 280);
 T('a full charge fires red, green and blue', chans() === '124' && a.pl.pch === 2);
-shoot(3, 6, 10, 6, 280); shoot(3, 6, 10, 6, 280);
-T('three shots empty it', a.pl.pch === 0);
 shoot(3, 6, 10, 6, 280);
-T('empty, it throws plain white again', chans() === '7');
+shoot(3, 6, 10, 6, 280);
+T('the third split spends the horn', a.pl.prism === 0 && a.pl.pch === 0);
+shoot(3, 6, 10, 6, 280);
+T('without it you throw plain white', chans() === '7');
+T('and it is not on its pedestal', horn.hp === 0);
+s(200);
+T('it takes a long time to reform', horn.hp === 0 && a.pl.prech > 0);
 a.pl.prech = 1; s(2);
-T('and it refills over time', a.pl.pch === 1);
+T('then it is back where it stood', horn.hp === 1);
+a.enter(at('sanctum'), 60, 262);
+a.pl.x = horn.x; a.pl.y = horn.y; s(2);
+T('and picking it up again refills the three', a.pl.prism === 1 && a.pl.pch === 3);
 
 // ---------- sigils span rooms ----------
 a.newGame();

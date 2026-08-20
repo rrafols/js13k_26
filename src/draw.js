@@ -282,6 +282,12 @@ function drawWorld(){
         g.fillStyle = i < sig ? '#ffe14d' : '#ffffff22';
         circ(x + 8 + i*10, y + TS/2, 3.4);
       }
+    } else if(LOCK[t]){                              // keyed lock
+      const col = MASKC[LOCK[t]];
+      g.fillStyle = '#2a2350'; g.fillRect(x, y, TS, TS);
+      g.fillStyle = col; g.fillRect(x + 3, y + 3, TS - 6, TS - 6);
+      g.fillStyle = '#0007'; circ(mx, my - 2, 6); g.fillRect(mx - 2.5, my - 2, 5, 11);
+      if(cb) pips(mx, my + 15, LOCK[t]);
     } else if(DOOR[t]){                              // colour door
       const m = DOOR[t], open = room.lit.has(c + ',' + r), col = MASKC[m];
       if(open){
@@ -434,6 +440,15 @@ function drawWorld(){
         g.beginPath(); g.moveTo(e.x - 8, 0); g.lineTo(e.x + 6, e.y - 30); g.lineTo(e.x - 4, e.y - 14);
         g.lineTo(e.x + 4, e.y); g.stroke();
       }
+    } else if(KEY[e.t]){                             // coloured key
+      const col = MASKC[KEY[e.t]], b = Math.sin(tick/13)*2;
+      g.globalAlpha = .25; g.fillStyle = col; circ(e.x, e.y + b, 14); g.globalAlpha = 1;
+      g.fillStyle = col;
+      circ(e.x - 5, e.y + b, 5);
+      g.fillRect(e.x - 1, e.y - 2 + b, 13, 4);
+      g.fillRect(e.x + 8, e.y + b, 4, 6);
+      g.fillStyle = '#0009'; circ(e.x - 5, e.y + b, 2);
+      if(cb) pips(e.x, e.y + 20, KEY[e.t]);
     } else if(e.t === 'K'){
       g.fillStyle = '#ffd84d';
       circ(e.x - 4, e.y, 5);
@@ -493,6 +508,10 @@ function minimap(){
       g.fillStyle = '#ffe14d';
       circ(x + s/2 - 1, y + s/2 - 1, 2);
     }
+    if(r.ents && r.ents.some(e => e.t === 'P' && e.hp)){          // where the horn waits
+      g.fillStyle = '#dff3ff';
+      circ(x + s/2 - 1, y + s/2 - 1, 2.6);
+    }
   });
 }
 
@@ -519,6 +538,11 @@ function draw(){
   }
   g.fillStyle = '#ffd84d'; g.font = 'bold 15px system-ui';
   g.fillText('⚑ ' + pl.keys, 106, 27);
+  [1, 2, 4].forEach((bit, i) => {                                 // coloured keys in hand
+    if(!pl.kk[bit]) return;
+    g.fillStyle = MASKC[bit];
+    circ(134 + i*10, 34, 3.4);
+  });
   g.fillStyle = pl.cd > 0 ? '#ffffff33' : '#5ddb62';              // gallop lamp
   circ(152, 22, 6);
   for(let i = 0; i < PMAX; i++){                                  // prism horn charges
@@ -526,9 +550,9 @@ function draw(){
     g.beginPath();
     g.moveTo(170 + i*11, 14); g.lineTo(175 + i*11, 29); g.lineTo(165 + i*11, 29); g.fill();
   }
-  if(pl.prism && pl.pch < PMAX){                                  // refilling
-    g.fillStyle = '#dff3ff44';
-    g.fillRect(165 + pl.pch*11, 29, 10*(1 - pl.prech/PRECH), 2);
+  if(!pl.prism && pl.prech > 0){                                  // reforming somewhere
+    g.fillStyle = '#dff3ff33'; g.fillRect(165, 31, 32, 3);
+    g.fillStyle = '#dff3ff'; g.fillRect(165, 31, 32*(1 - pl.prech/PRESP), 3);
   }
   for(let i = 0; i < shardGoal; i++){                                // the colours you carry
     g.fillStyle = i < pl.shards ? BANDS[i] : '#ffffff1a';

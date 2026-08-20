@@ -132,9 +132,10 @@ the grid and already bounced.
 
 ## Built since (colour as a key)
 
-- **Horn-as-prism** — a full charge splits into red, green and blue, three
-  charges that refill over time. Colour is now portable, not tied to prism
-  tiles.
+- **Horn-as-prism** — a full charge splits into red, green and blue. Three
+  splits and the horn is spent: it leaves you and reforms on its pedestal
+  after a long wait, so colour is portable but never free. The HUD tracks the
+  reform and the minimap marks the room it is in.
 - **Colour-locked doors** — `!` `@` `%` `$` `&` `*` `=` want masks 1..7. A shut
   door stops light but still takes it on the face, which is what lets it open.
   Yellow doors need two beams crossing.
@@ -146,13 +147,21 @@ the grid and already bounced.
 - **Sixteen rooms** — Chromatic Locks, Sigil Terrace and The Sunken Vault are
   new; the chain now branches three ways.
 
+## Dropped
+
+- **Isometric projection** — explored, prototyped playable in `spike/iso.html`
+  with cast shadows, and then set aside. The look was strong; the cost was a
+  renderer rewrite the byte budget could not carry.
+
 ## Still on the shelf
 
-1. **Isometric projection** — stage two of the darkness work. Prototype and
-   findings in `spike/iso.html`; the grid, collision and tests are untouched by
-   it, and a zoomed follow camera keeps a full-charge beam (7 tiles) on screen.
-2. **Horn-as-prism retrofit** — make the Prism Horn fire red/green/blue instead of three white beams, so colour puzzles can appear in any room rather than only where a prism tile sits.
-3. **Colour-locked doors** — gates that read a specific hue, the natural next step for the light engine.
-4. **Drawn beam paths** — the Phantom Hourglass stylus line, for rainbows that turn corners without mirrors.
-5. **NPCs and a hub** — typewriter text boxes, a village between runs.
-6. **Fire relay** — a rainbow passing a lit torch carries flame to the next one.
+1. **Get back under 13,312** — currently 1,080 over, which makes the entry
+   invalid. `src/draw.js` is a third of the bundle and the prop pass is a
+   twenty-branch chain that a table would collapse; room maps are 8.9KB of
+   literals. Blocking, and the enabler for everything below.
+2. **Play a full run and tune it** — nobody has. Tests prove every door and
+   treasure is reachable; they say nothing about whether the horn walk-back is
+   tension or tedium, or how long a Story run takes.
+3. **Drawn beam paths** — the Phantom Hourglass stylus line, for rainbows that turn corners without mirrors.
+4. **NPCs and a hub** — typewriter text boxes, a village between runs.
+5. **Fire relay** — a rainbow passing a lit torch carries flame to the next one.

@@ -151,6 +151,27 @@ function gen(seed, len){
     const i = 1 + ri(Math.max(1, len - 3));
     if(i !== host && drop(dun[i].m, 'S', 3, 20)) k--;
   }
+  // Coloured keys: the key always lands in an earlier chain room than its lock,
+  // and the lock always guards a walled alcove -- never a way out of a room.
+  for(let n = 1 + ri(2); n--;){
+    const i = ri(3), key = 'xyz'[i], lock = '[]{'[i];
+    let lockRoom = -1;
+    for(let tr = 0; tr < 14 && lockRoom < 0; tr++){
+      const h = 2 + ri(Math.max(1, len - 4)), m3 = dun[h].m;
+      let clear = 1;
+      for(let r = 8; r <= 11; r++) for(let c = 2; c <= 5; c++) if(m3[r][c] !== '.') clear = 0;
+      if(clear) lockRoom = h;
+    }
+    if(lockRoom < 0) continue;
+    const m3 = dun[lockRoom].m;
+    box(m3, 2, 8, 5, 8, '#'); box(m3, 6, 9, 6, 11, '#');
+    m3[8][3] = lock; m3[10][3] = ri(2) ? 'H' : 'R';
+    if(m3[10][3] === 'R') goal++;
+    const keyRoom = ri(lockRoom - 1) + 1;              // strictly earlier in the chain
+    // Keep the key clear of both alcove footprints, or it can end up sealed
+    // inside the very vault it opens.
+    if(!drop(dun[keyRoom].m, key, 8, 17)) m3[8][3] = '.';   // no key placed, no lock
+  }
   dun.forEach(d => d.m = d.m.map(r => r.join('')));
   dun.goal = goal;
   return dun;
