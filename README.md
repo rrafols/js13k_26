@@ -33,27 +33,66 @@ A thrown rainbow is light with a colour mask (red/green/blue). It:
 - **paints** every tile it crosses, and a drained room's colour comes back as
   you repaint it
 
+## Layout
+
+    index.html        the entry: a canvas and the list of sources, in load order
+    src/*.js          the game, plain classic scripts sharing one global scope
+    build/build.mjs   the pipeline
+    build/bundle.mjs  entry reader + concatenator, shared by build, tests, verify
+    build/smoke.mjs   headless boot test used by the build
+    tests/            behavioural suites
+    verify.mjs        render-equivalence check between two builds
+
+Sources are ordinary `<script>` files, not modules: they share one scope and
+run in the order `index.html` lists them, so `npm run build` is the only step
+between editing and shipping — open `index.html` directly and the game runs
+unbundled.
+
 ## Build
 
-    python3 build.py     # -> dist/index.html and dist/game.zip, must fit 13312 bytes
-    node verify.js       # proves dist behaves exactly like the source
+    npm install
+    npm run build          # -> dist/release.zip
+    npm run build:stats    # same, with per-file source sizes
+    npm run build:debug    # readable output, for when a build breaks
+    npm run build:safe     # keep property names
+    node build/build.mjs --help
 
-`build.py` strips comments and indentation, then aliases top-level names and
-this game's own property names — working on a scanner that separates code from
-string literals, so display text is never mangled. `verify.js` runs both builds
-side by side under the same seeded RNG and synthetic input, recording every
-canvas call, and fails if the two ever diverge.
+The pipeline is
+
+    index.html -> bundle (one IIFE) -> terser (DCE + property mangling)
+               -> roadroller -> inlined html -> zip
+
+Both the plain-terser html and the roadroller-packed html go all the way to an
+archive and the smaller one becomes `dist/release.zip`; roadroller output is
+already near entropy so deflate barely helps on top of it, and which one wins
+changes as the project grows. `advzip` or `ect` are used to recompress if
+either is on PATH.
+
+Three things guard the build, because unsafe compress options and property
+mangling break code at runtime rather than at parse time:
+
+- the **smoke test** boots the minified bundle against a stub canvas and plays
+  it — menu, a run, a thrown rainbow, a gallop, a generated dungeon, boss rush
+- the **round-trip check** stubs `eval` and confirms the packed payload decodes
+  to the same program as the terser output
+- **`npm run verify`** replays six scripted sessions through both the sources
+  and `dist/bundle.js` under the same seeded RNG, comparing every canvas call
+
+Together those cover the whole chain: sources behave like the minified bundle,
+and the packed payload decodes to that bundle.
 
 ## Tests
 
-    node tests/dungeon.test.js    # rooms, bridges, mirrors, torches, gallop
-    node tests/light.test.js      # prisms, filters, colour mixing, painting
-    node tests/storm.test.js      # boss phases, prism horn, clouds, shards
-    node tests/runs.test.js       # generator invariants, ramps, roster, modes
-    node tests/crossing.sim.js    # can a player actually clear Storm Approach?
+    npm test               # all five suites
+    npm run check          # tests, then a build and verify
 
-They load the game into a `vm` with a stub canvas and drive the real `step()`
-loop, so they test the shipped code rather than a copy of it. `runs.test.js`
-also flood-fills 60 generated dungeons to prove every door in every room is
-reachable. They read internals, so they run against the readable source;
-`verify.js` is what covers `dist/`.
+    node tests/dungeon.test.mjs    # rooms, bridges, mirrors, torches, gallop
+    node tests/light.test.mjs      # prisms, filters, colour mixing, painting
+    node tests/storm.test.mjs      # boss phases, prism horn, clouds, shards
+    node tests/runs.test.mjs       # generator invariants, ramps, roster, modes
+    node tests/crossing.sim.mjs    # can a player actually clear Storm Approach?
+
+They bundle the same sources the build ships and drive the real `step()` loop
+in a vm, so they test the shipped code rather than a copy. `runs.test.mjs` also
+flood-fills 60 generated dungeons to prove every door in every room is
+reachable. `GAME=path/to/index.html` points any of them at a different entry.

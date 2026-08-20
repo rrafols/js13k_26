@@ -1,20 +1,6 @@
-const fs=require('fs'),vm=require('vm');
-let src=fs.readFileSync(process.env.GAME || __dirname + '/../index.html','utf8').split('<script>')[1].split('</script>')[0];
-src+=`;var api={step,draw,newGame,fire,cast,enter,gateOpen,solid,bossHit,SRC,
- get pl(){return pl},get map(){return map},get room(){return room},get rooms(){return rooms},
- get ents(){return ents},set ents(v){ents=v},get bows(){return bows},get bridged(){return bridged},
- get ps(){return ps},get won(){return won},get aim(){return aim},get shake(){return shake},
- set keys(k){keys=k},set charge(v){charge=v}};`;
-const noop=new Proxy(function(){},{get:(t,k)=>k==='canvas'?{}:noop,apply:()=>noop,set:()=>true});
-const ctx={console,Date,Math,setTimeout,requestAnimationFrame:()=>{},
-  document:{getElementById:()=>({getContext:()=>noop,getBoundingClientRect:()=>({left:0,top:0,width:960,height:564})}),
-            createElement:()=>({getContext:()=>noop})}};
-ctx.window=ctx; vm.createContext(ctx); vm.runInContext(src,ctx);
-const a=ctx.api, TS=40, mid=n=>n*TS+20;
-const s=(n,k={})=>{a.keys=k;for(let i=0;i<n;i++)a.step();};
-const shoot=(fc,fr,tc,tr,len)=>{a.pl.x=mid(fc);a.pl.y=mid(fr);a.aim.x=mid(tc);a.aim.y=mid(tr);a.charge=len||280;a.fire();};
+import { load, helpers } from './harness.mjs'
+const a = load(), { TS, mid, s, shoot, T, done } = helpers(a)
 const R=()=>a.rooms.indexOf(a.room);
-let f=0; const T=(n,ok)=>{if(!ok)f++;console.log((ok?'PASS  ':'FAIL  ')+n)};
 
 a.newGame();
 T('13 rooms', a.rooms.length===13);
@@ -94,4 +80,4 @@ for(let i=0;i<170;i++){ a.step(); if(a.ents.some(e=>e.t==='L'&&e.hp)) sawBolt=1;
 T('the storm telegraphs and drops lightning', sawBolt===1);
 T('a bolt that lands hurts', a.pl.hp<3);
 a.draw();
-console.log(f?f+' FAILURES':'all green');
+done();

@@ -1,19 +1,7 @@
 // Chromatic light engine
-const fs=require('fs'),vm=require('vm');
-let src=fs.readFileSync(process.env.GAME || __dirname + '/../index.html','utf8').split('<script>')[1].split('</script>')[0];
-src+=`;var api={step,draw,newGame,fire,cast,enter,gateOpen,solid,resolve,SRC,
- get pl(){return pl},get map(){return map},get room(){return room},get rooms(){return rooms},
- get ents(){return ents},get bows(){return bows},get bridged(){return bridged},get won(){return won},
- get aim(){return aim},set keys(k){keys=k},set charge(v){charge=v}};`;
-const noop=new Proxy(function(){},{get:(t,k)=>k==='canvas'?{}:noop,apply:()=>noop,set:()=>true});
-const ctx={console,Date,Math,setTimeout,requestAnimationFrame:()=>{},
-  document:{getElementById:()=>({getContext:()=>noop,getBoundingClientRect:()=>({left:0,top:0,width:960,height:564})}),createElement:()=>({getContext:()=>noop})}};
-ctx.window=ctx; vm.createContext(ctx); vm.runInContext(src,ctx);
-const a=ctx.api, TS=40, mid=n=>n*TS+20;
-const s=(n,k={})=>{a.keys=k;for(let i=0;i<n;i++)a.step();};
-const shoot=(fc,fr,tc,tr,len)=>{a.pl.x=mid(fc);a.pl.y=mid(fr);a.aim.x=mid(tc);a.aim.y=mid(tr);a.charge=len||280;a.fire();};
+import { load, helpers } from './harness.mjs'
+const a = load(), { TS, mid, s, shoot, T, done } = helpers(a)
 const litAt=(c,r)=>a.room.lit.has(c+','+r);
-let f=0; const T=(n,ok)=>{if(!ok)f++;console.log((ok?'PASS  ':'FAIL  ')+n)};
 
 a.newGame();
 T('13 rooms', a.rooms.length===13);
@@ -67,4 +55,4 @@ for(let i=0;i<500;i++) a.step();          // let the red beam fade out
 shoot(16,1,16,8,280);
 T('a faded beam cannot contribute to a mix', !litAt(16,6));
 a.draw();
-console.log(f?f+' FAILURES':'all green');
+done();

@@ -1,24 +1,6 @@
 // procedural runs, ramps, roster, modes, furniture
-const fs=require('fs'),vm=require('vm');
-let src=fs.readFileSync(process.env.GAME || __dirname + '/../index.html','utf8').split('<script>')[1].split('</script>')[0];
-src+=`;var api={step,draw,newGame,fire,cast,enter,gateOpen,solid,resolve,gen,genRush,start,title,rnd32,SRC,
- get DUN(){return DUN},get scene(){return scene},set scene(v){scene=v},get mode(){return mode},
- get runF(){return runF},get best(){return best},get shardGoal(){return shardGoal},
- get pl(){return pl},get map(){return map},get room(){return room},get rooms(){return rooms},
- get ents(){return ents},set ents(v){ents=v},get bows(){return bows},get bridged(){return bridged},
- get ramped(){return ramped},get ps(){return ps},get won(){return won},get aim(){return aim},
- set keys(k){keys=k},set charge(v){charge=v}};`;
-const noop=new Proxy(function(){},{get:(t,k)=>k==='canvas'?{}:noop,apply:()=>noop,set:()=>true});
-const store={};
-const ctx={console,Date,Math,setTimeout,JSON,requestAnimationFrame:()=>{},
-  localStorage:{get ru13(){return store.ru13},set ru13(v){store.ru13=v}},
-  document:{getElementById:()=>({getContext:()=>noop,getBoundingClientRect:()=>({left:0,top:0,width:960,height:564})}),createElement:()=>({getContext:()=>noop})}};
-ctx.window=ctx; vm.createContext(ctx); vm.runInContext(src,ctx);
-const a=ctx.api, TS=40, mid=n=>n*TS+20;
-const s=(n,k={})=>{a.keys=k;for(let i=0;i<n;i++)a.step();};
-const shoot=(fc,fr,tc,tr,len)=>{a.pl.x=mid(fc);a.pl.y=mid(fr);a.aim.x=mid(tc);a.aim.y=mid(tr);a.charge=len||280;a.fire();};
-let f=0; const T=(n,ok)=>{if(!ok)f++;console.log((ok?'PASS  ':'FAIL  ')+n)};
-
+import { load, helpers } from './harness.mjs'
+const a = load(), { TS, mid, s, shoot, T, done } = helpers(a)
 // ---------- 1. procedural dungeons ----------
 const d1=a.gen(12345,9), d2=a.gen(12345,9), d3=a.gen(999,9);
 T('a seed reproduces its dungeon exactly', JSON.stringify(d1)===JSON.stringify(d2));
@@ -156,4 +138,4 @@ a.start('story'); s(60); a.pl.shards=7; a.enter(12,60,262);
 T('a slower run does not overwrite it', a.best.story===first);
 a.scene='title'; a.title();
 T('title screen renders', true);
-console.log(f?f+' FAILURES':'all green');
+done();

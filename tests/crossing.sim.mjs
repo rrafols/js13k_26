@@ -1,13 +1,6 @@
 // Can a competent player actually clear Storm Approach with the clouds eating bridges?
-const fs=require('fs'),vm=require('vm');
-let src=fs.readFileSync(process.env.GAME || __dirname + '/../index.html','utf8').split('<script>')[1].split('</script>')[0];
-src+=`;var api={step,enter,newGame,fire,get pl(){return pl},get ents(){return ents},get bows(){return bows},
- get bridged(){return bridged},get aim(){return aim},set charge(v){charge=v},set keys(k){keys=k}};`;
-const noop=new Proxy(function(){},{get:(t,k)=>k==='canvas'?{}:noop,apply:()=>noop,set:()=>true});
-const ctx={console,Date,Math,setTimeout,requestAnimationFrame:()=>{},
-  document:{getElementById:()=>({getContext:()=>noop,getBoundingClientRect:()=>({left:0,top:0,width:960,height:564})}),createElement:()=>({getContext:()=>noop})}};
-ctx.window=ctx; vm.createContext(ctx); vm.runInContext(src,ctx);
-const a=ctx.api;
+import { load, helpers } from './harness.mjs'
+const a = load(), { TS, mid, s, shoot, T, done } = helpers(a)
 a.newGame(); a.enter(9,60,262);
 const startHp=a.pl.hp;
 let drowned=0, thrown=0;
