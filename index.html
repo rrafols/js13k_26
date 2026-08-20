@@ -3,9 +3,8 @@
 <title>Rainbow Unicorn — Isles of the Sun Door</title>
 <style>
   html,body{margin:0;height:100%;background:#0e0b1e;display:grid;place-items:center;
-            font:14px/1.4 system-ui,sans-serif;color:#fff;overflow:hidden}
-  canvas{background:#1a1633;border-radius:10px;max-width:100vw;max-height:100vh;
-         touch-action:none;cursor:crosshair}
+            font:14px system-ui;color:#fff;overflow:hidden}
+  canvas{background:#1a1633;max-width:100vw;max-height:100vh;touch-action:none;cursor:crosshair}
 </style>
 <canvas id=c width=960 height=564></canvas>
 <script>
@@ -31,7 +30,7 @@ const SRC = [
   '#.........~~~~~.........',
   '#.........~~~~~........#',
   '#.........~~~~~........#',
-  '#.........~~~~~........#',
+  '#..qq.....~~~~~........#',
   '#.........~~~~~........#',
   '#.........~~~~~........#',
   '########################']},
@@ -47,7 +46,7 @@ const SRC = [
   '#...~~~~~..............#',
   '#...~~~~~......E.......#',
   '#......................#',
-  '#..........E...........#',
+  '#.qqq......E...........#',
   '#......................#',
   '########################']},
 
@@ -58,7 +57,7 @@ const SRC = [
   '#....7....~~~~~...7.H..#',
   '#.........~~~~~........#',
   '#.........~~~~~........#',
-  '..........~~~~~........G',
+  '...O......~~~~~........G',
   '#.........~~~~~........#',
   '#.........~~~~~........#',
   '#....7....~~~~~...7....#',
@@ -69,16 +68,16 @@ const SRC = [
 { name:'Gallop Hall', start:[1,6], links:{w:2, e:4, n:10}, mp:[3,1], m:[
   '###.####################',
   '#.......#...~~~~~~~~...#',
-  '#.......#...~~~~~~~~...#',
+  '#....qq.#...~~~~~~~~...#',
   '#..E....#...~~~~~~~~.E.#',
   '#.......#...~~~~~~~~...#',
   '#.......X...~~~~~~~~...#',
   '........X...~~~~~~~~....',
   '#.......X...~~~~~~~~...#',
   '#.......#...~~~~~~~~...#',
-  '#..E....#...~~~~~~~~.E.#',
-  '#.H.....#...~~~~~~~~...#',
-  '#.......#...~~~~~~~~...#',
+  '#..A....#...~~~~~~~~^^^#',
+  '#.H.....#...~~~~~~~~^M^#',
+  '#.......#...~~~~~~~~^^^#',
   '########################']},
 
 { name:'Mirror Hall', start:[1,6], links:{w:3, e:5}, mp:[4,1], m:[
@@ -93,7 +92,7 @@ const SRC = [
   '#.........~~~~~.....#X##',
   '#.........~~~~~....#...#',
   '#..E...............#.R.#',
-  '#...........E......#...#',
+  '#...........U......#...#',
   '########################']},
 
 { name:'Drained Vault', start:[1,6], links:{w:4, e:6}, mp:[5,1], drain:1, m:[
@@ -104,7 +103,7 @@ const SRC = [
   '#...f....~~~~~~........#',
   '#........~~~~~~.....H..#',
   '.........~~~~~~........G',
-  '#........~~~~~~....E...#',
+  '#........~~~~~~....W...#',
   '#........~~~~~~........#',
   '#........~~~~~~.....R..#',
   '#..###...~~~~~~........#',
@@ -118,12 +117,12 @@ const SRC = [
   '#.......~~~~~~~~.......#',
   '#.......~~~~~~~~.......#',
   '#.......~~~..~~~.......#',
-  '........~~~P.~~~........',
+  '..O.....~~~P.~~~........',
   '#.......~~~..~~~.......#',
   '#.......~~~~~~~~.......#',
-  '#.......~~~~~~~~.....E.#',
-  '#...................R..#',
-  '#......................#',
+  '#.......~~~~~~~~..^^^^.#',
+  '#.................^HR^.#',
+  '#..qq.............^^^^.#',
   '########################']},
 
 { name:'Prism Ward', start:[1,6], links:{w:6, e:8}, mp:[7,1], drain:1, m:[
@@ -137,7 +136,7 @@ const SRC = [
   '#...............4......#',
   '#..~~~~................#',
   '#..~~~~................#',
-  '#..~~~~.............E..#',
+  '#..~~~~.............A..#',
   '#......................#',
   '########################']},
 
@@ -153,13 +152,13 @@ const SRC = [
   '#...........#..........#',
   '#..##b##....#..........#',
   '#...................E..#',
-  '#....4..E..............#',
+  '#....4..U..............#',
   '########################']},
 
 { name:'Storm Approach', start:[1,6], links:{w:8, e:11}, mp:[9,1], m:[
   '########################',
   '#........~~~~~~~~......#',
-  '#........~~~~~~~~....E.#',
+  '#........~~~~~~~~....U.#',
   '#........~~~C~~~~......#',
   '#........~~~~~~~~......#',
   '#........~~~~~~~~......#',
@@ -167,23 +166,23 @@ const SRC = [
   '#........~~~~~~~~......#',
   '#........~~~~~~~~......#',
   '#........~~~C~~~~......#',
-  '#........~~~~~~~~......#',
+  '#........~~~~~~~~...W..#',
   '#........~~~~~~~~......#',
   '########################']},
 
 { name:'Hidden Grotto', start:[3,1], links:{s:3}, mp:[3,0], m:[
   '########################',
   '#......................#',
-  '#.~~~~.................#',
+  '#.~~~~..qqq............#',
   '#.~~~~............E....#',
   '#.~~~~...##XX##........#',
   '#.~~~~...#....#........#',
   '#.~~~~...#.R.H#........#',
   '#.~~~~...#....#........#',
   '#.~~~~...######........#',
-  '#.~~~~.................#',
-  '#.................E....#',
-  '#......................#',
+  '#.~~~~...........^^^^^.#',
+  '#................^^N^^.#',
+  '#................^^^^^.#',
   '###.####################']},
 
 { name:'Sun Gate', start:[1,6], links:{w:9, e:12}, mp:[10,1], m:[
@@ -193,7 +192,7 @@ const SRC = [
   '#..H......~~~~.........#',
   '#.........~~~~.........#',
   '#.........~~~~.........#',
-  '.......E.........E.....Y',
+  '.......V.........E.....Y',
   '#.........~~~~.........#',
   '#.........~~~~.........#',
   '#.........~~~~.........#',
@@ -218,29 +217,168 @@ const SRC = [
 
 ];
 
+// ---------- procedural dungeons ----------
+// Every template writes its own way through, so a generated run is solvable by
+// construction: water is never wider than one throw, a gate's crystals always
+// sit in the open, a cracked wall always has floor on both sides.
+const NAMES = ['Shallows','Terrace','Causeway','Cistern','Arch','Stair','Span'];
+function rnd32(a){
+  return () => {
+    a = a + 0x6D2B79F5 | 0;
+    let t = Math.imul(a ^ a >>> 15, 1 | a);
+    t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+function blankRoom(){
+  const m = [];
+  for(let r = 0; r < ROWS; r++)
+    m.push((r && r < ROWS - 1 ? '#' + '.'.repeat(COLS - 2) + '#' : '#'.repeat(COLS)).split(''));
+  return m;
+}
+const box = (m, c0, r0, c1, r1, ch) => {
+  for(let r = r0; r <= r1; r++) for(let c = c0; c <= c1; c++) m[r][c] = ch;
+};
+function arena(m){                                   // the storm's ring, mirrors and all
+  box(m, 2, 2, 4, 4, '~'); box(m, 19, 2, 21, 4, '~');
+  box(m, 2, 9, 4, 11, '~'); box(m, 19, 9, 21, 11, '~');
+  m[4][12] = '\\'; m[8][12] = '/'; m[6][8] = '\\'; m[6][16] = '/'; m[6][12] = 'B';
+  return m;
+}
+function gen(seed, len){
+  const R = rnd32(seed), ri = n => R()*n | 0, pick = a => a[ri(a.length)];
+  const drop = (m, ch, lo, hi) => {                  // onto open floor, never the corridor
+    for(let i = 0; i < 80; i++){
+      const c = lo + ri(hi - lo), r = 1 + ri(ROWS - 2);
+      if(m[r][c] === '.' && r !== 6){ m[r][c] = ch; return 1; }
+    }
+    return 0;
+  };
+  const theme = (m, k) => {
+    if(k === 'water'){ const w = 4 + ri(3), a = 8 + ri(4); box(m, a, 1, a + w - 1, ROWS - 2, '~'); }
+    else if(k === 'crack'){ const a = 7 + ri(6); box(m, a, 1, a, ROWS - 2, '#'); box(m, a, 5, a, 7, 'X'); }
+    else if(k === 'crystals'){ for(let i = 2 + ri(3); i--;) drop(m, '7', 3, 20); return 1; }
+    else if(k === 'torch'){ for(let i = 2 + ri(2); i--;) drop(m, 'f', 3, 20); return 1; }
+    else if(k === 'mirror'){                         // sealed channel: only a bounce gets in
+      const a = 4 + ri(4);
+      box(m, a, 2, a + 2, 2, '#'); m[1][a] = '7'; m[1][a + 3] = '\\';
+      return 1;
+    }
+    else if(k === 'prism'){ m[6][12] = '>'; m[5][16] = '1'; m[6][16] = '2'; m[7][16] = '4'; return 1; }
+    else if(k === 'filter'){
+      const f = pick(['r','g','b']);
+      box(m, 12, 3, 12, 9, '#');
+      m[6][12] = f; m[6][16] = f === 'r' ? '1' : f === 'g' ? '2' : '4';
+      return 1;
+    }
+    else if(k === 'plateau'){ const a = 17 + ri(4); box(m, a - 3, 8, a, 11, '^'); m[10][a - 1] = 'M'; }
+    else if(k === 'blocks'){
+      const a = 9 + ri(5); box(m, a, 1, a + 1, ROWS - 2, '~');
+      for(let i = 3; i--;) drop(m, 'O', 3, a - 1);
+      for(let i = 3; i--;) drop(m, 'q', 3, 20);
+    }
+    else for(let i = 3; i--;) drop(m, pick(['E','E','A','U','W']), 4, 20);
+    return 0;
+  };
+  const pool = ['water','water','crack','crystals','torch','mirror','prism','filter',
+                'plateau','blocks','combat'];
+  const dun = [];
+  for(let i = 0; i < len; i++){
+    const m = blankRoom(), links = {}, last = i === len - 1;
+    let name = NAMES[(seed + i*7) % NAMES.length], drain = 0;
+    if(i){ m[6][0] = '.'; links.w = i - 1; }
+    if(!last){ m[6][COLS - 1] = '.'; links.e = i + 1; }
+    if(last){ arena(m); name = 'Storm Arena'; }
+    else if(i === len - 2){
+      m[6][COLS - 1] = 'Y'; name = 'Sun Gate';
+      drop(m, 'H', 3, 20); drop(m, 'V', 6, 18);      // the thief guards the last door
+    } else if(i === 0){ theme(m, 'water'); drop(m, 'H', 3, 20); drop(m, 'q', 3, 20); }
+    else {
+      if(theme(m, pick(pool))) m[6][COLS - 1] = 'G';
+      for(let k = ri(3); k--;){                      // pools: never on the corridor, and
+        const c0 = 3 + ri(17), r0 = 1 + ri(9);       // never touching other water, so no
+        if(r0 === 6 || r0 + 1 === 6) continue;       // run ever grows past one throw
+        let ok = 1;
+        for(let r2 = r0 - 1; r2 <= r0 + 2; r2++) for(let c2 = c0 - 1; c2 <= c0 + 2; c2++)
+          if(((m[r2] || [])[c2] || '.') !== '.') ok = 0;
+        if(!ok) continue;
+        for(let r2 = r0; r2 <= r0 + 1; r2++) for(let c2 = c0; c2 <= c0 + 1; c2++) m[r2][c2] = '~';
+      }
+      for(let k = ri(4); k--;) drop(m, 'q', 3, 20);
+      if(i === 1) drop(m, 'P', 3, 20);               // the horn, early
+      for(let k = 1 + ri(3); k--;) drop(m, pick(['E','E','A','U','W','q','H']), 4, 20);
+      drain = R() < .25 ? 1 : 0;
+    }
+    dun.push({name, start:[i ? 1 : 2, 6], links, mp:[i, 1], m, drain});
+  }
+  let goal = 0;
+  for(let b = 1 + ri(2); b--;){                      // side rooms, each with a chest
+    let host = -1;
+    for(let tr = 0; tr < 12 && host < 0; tr++){       // never hang two off one room
+      const h = 1 + ri(Math.max(1, len - 3));
+      if(dun[h].links.n == null) host = h;
+    }
+    if(host < 0) continue;
+    const bi = dun.length, m = blankRoom();
+    dun[host].m[0][3] = '.'; dun[host].links.n = bi;
+    m[ROWS - 1][3] = '.';
+    box(m, 9, 4, 14, 4, '#'); box(m, 9, 8, 14, 8, '#');
+    box(m, 9, 5, 9, 7, '#'); box(m, 14, 5, 14, 7, '#');
+    m[4][11] = 'X'; m[6][11] = 'M';                  // gallop in, take the shard
+    drop(m, 'E', 16, 21); drop(m, 'q', 16, 21);
+    dun.push({name:'Hidden ' + NAMES[(seed + bi) % NAMES.length],
+              start:[3, 11], links:{s:host}, mp:[dun[host].mp[0], 0], m, drain:0});
+    goal++;
+  }
+  for(let k = 2; k--;){                              // and a couple loose in the chain
+    const i = 1 + ri(Math.max(1, len - 3));
+    if(drop(dun[i].m, 'R', 3, 20)) goal++;
+  }
+  dun.forEach(d => d.m = d.m.map(r => r.join('')));
+  dun.goal = goal;
+  return dun;
+}
+const genRush = () => {
+  const m = arena(blankRoom());
+  const d = [{name:'Storm Arena', start:[2, 6], links:{}, mp:[0, 1], m:m.map(r => r.join('')), drain:0}];
+  d.goal = 0; return d;
+};
+
 // ---------- state ----------
 const SPD = 2.7, MINLEN = 80, MAXLEN = 280, MAXBOWS = 3, BOWLIFE = 420;
-const DASH = 13, DSPD = 6.6, DCD = 34, SHARDS = 7;
+const DASH = 13, DSPD = 6.6, DCD = 34;
+let shardGoal = 7;
 const BANDS = ['#ff4d5e','#ff9c3d','#ffe14d','#5ddb62','#4db6ff','#5a5aff','#b04dff'];
 // A beam carries a 3-bit colour mask: 1 red, 2 green, 4 blue, 7 white. Prisms
 // split it into channels, filters keep one, and beams crossing the same tile
 // mix additively -- red + green lights a yellow crystal.
 const MASKC = ['#666','#ff4d5e','#5ddb62','#ffe14d','#4db6ff','#ff5ef0','#4de1d5','#fff'];
-const STRIPES = MASKC.map((h, m) => {
-  if(m === 7) return BANDS;
-  const n = parseInt(h.slice(1).replace(/^(.)(.)(.)$/, '$1$1$2$2$3$3'), 16);
-  const R = n >> 16, G = (n >> 8) & 255, B = n & 255;
-  return [0,1,2,3,4,5,6].map(i => {
-    const t = (i - 3)/3, f = v => Math.round(t < 0 ? v*(1 + t*.5) : v + (255 - v)*t*.5);
-    return 'rgb(' + f(R) + ',' + f(G) + ',' + f(B) + ')';
-  });
-});
-let rooms, room, map, ents, bows, bridged, ps, pl, aim, charge, charging, won, shake = 0, tick = 0, keys = {};
+let rooms, room, map, ents, bows, bridged, ramped, ps, pl, aim, charge, charging, won, shake = 0, tick = 0, keys = {};
 
+let DUN = SRC, scene = 'title', mode = 'story', seed = 0, runF = 0, best = {}, pick = 0;
+const daily = () => { const d = new Date(); return d.getFullYear()*1e4 + (d.getMonth() + 1)*100 + d.getDate(); };
+const bestKey = () => mode === 'daily' ? 'daily' + seed : mode;
+function loadBest(){ try { best = JSON.parse(localStorage.ru13 || '{}'); } catch(e){ best = {}; } }
+function saveBest(k, v){ try { best[k] = v; localStorage.ru13 = JSON.stringify(best); } catch(e){} }
+const clock = f => (f/3600 | 0) + ':' + ('0' + (f/60 % 60 | 0)).slice(-2);
+const MODES = ['story','daily','random','rush'];
+function start(m){
+  mode = m;
+  if(m === 'story'){ DUN = SRC; shardGoal = 7; }
+  else if(m === 'rush'){ DUN = genRush(); shardGoal = 0; }
+  else {
+    seed = m === 'daily' ? daily() : Math.random()*1e9 | 0;
+    DUN = gen(seed, 7 + seed % 4);
+    shardGoal = DUN.goal;
+  }
+  scene = 'play'; newGame();
+  if(m === 'rush') pl.prism = 1;
+}
 function newGame(){
-  rooms = SRC.map(r => ({...r, m:r.m.map(s => s.split('')), ents:null, drain:r.drain || 0,
+  runF = 0;
+  rooms = DUN.map(r => ({...r, m:r.m.map(s => s.split('')), ents:null, drain:r.drain || 0,
                          seen:0, lit:new Set(), paint:new Map(), go:null}));
-  pl = {x:0, y:0, r:13, dir:0, hp:3, keys:0, shards:0, prism:0, inv:0, dash:0, cd:0};
+  pl = {x:0, y:0, r:13, dir:0, hp:3, keys:0, shards:0, prism:0, inv:0, dash:0, cd:0, z:0, stolen:0, push:0};
   won = 0; aim = {x:600, y:300}; charge = 0; charging = 0; shake = 0;
   enter(0, SRC[0].start[0]*TS + TS/2, SRC[0].start[1]*TS + TS/2);
 }
@@ -249,15 +387,16 @@ function enter(i, x, y){
   if(!room.ents){                                   // spawn contents once per room
     room.ents = [];
     map.forEach((row, r) => row.forEach((t, c) => {
-      if('EKHRPCB'.includes(t)){
+      if('EKHRPCBAUWV'.includes(t)){
         room.ents.push({t, x:c*TS + TS/2, y:r*TS + TS/2, hx:c*TS + TS/2, hy:r*TS + TS/2,
-                        hp:t === 'B' ? 5 : 1, w:Math.random()*7});
-        const near = [[1,0],[-1,0],[0,1],[0,-1]].filter(([a,b]) => (map[r+b]||[])[c+a] === '~');
-        map[r][c] = near.length > 1 ? '~' : '.';     // keep the terrain it stood on
+                        hp:t === 'B' ? 5 : t === 'V' ? 3 : 1, w:Math.random()*7});
+        const nb = [[1,0],[-1,0],[0,1],[0,-1]].map(([a,b]) => (map[r+b] || [])[c+a]);
+        const cnt = ch => nb.filter(x => x === ch).length;
+        map[r][c] = cnt('~') > 1 ? '~' : cnt('^') > 1 ? '^' : '.';   // keep its terrain
       }
     }));
   }
-  ents = room.ents; bows = []; bridged = new Set(); ps = [];
+  ents = room.ents; bows = []; bridged = new Set(); ramped = new Set(); ps = [];
   pl.x = x; pl.y = y; pl.dash = 0; pl.spawn = [x, y];
 }
 
@@ -294,8 +433,16 @@ onkeydown = e => {
 onkeyup = e => {
   const k = e.key.toLowerCase();
   keys[k] = 0;
+  if(scene === 'title'){
+    if(k === 'arrowdown' || k === 's') pick = (pick + 1) % 4;
+    if(k === 'arrowup' || k === 'w') pick = (pick + 3) % 4;
+    if(k === 'enter' || k === ' ') start(MODES[pick]);
+    if('1234'.includes(k)) start(MODES[+k - 1]);
+    return;
+  }
   if(k === 'r') newGame();
   if(k === 'm') mute = !mute;
+  if(k === 'escape'){ scene = 'title'; charging = 0; }
 };
 function toWorld(e){
   const b = cv.getBoundingClientRect(), t = e.touches ? e.touches[0] : e;
@@ -303,7 +450,15 @@ function toWorld(e){
   aim.y = (t.clientY - b.top)/b.height * H - HUD;
 }
 cv.onmousemove = cv.ontouchmove  = e => { toWorld(e); e.preventDefault(); };
-cv.onmousedown = cv.ontouchstart = e => { toWorld(e); charging = 1; charge = MINLEN; e.preventDefault(); };
+cv.onmousedown = cv.ontouchstart = e => {
+  toWorld(e); e.preventDefault();
+  if(scene === 'title'){                             // menu rows sit 46px apart
+    const i = (aim.y + HUD - 250)/46 | 0;
+    if(i >= 0 && i < 4) start(MODES[i]);
+    return;
+  }
+  charging = 1; charge = MINLEN;
+};
 onmouseup = ontouchend = () => { if(charging){ fire(); charging = 0; } };
 
 // ---------- tiles ----------
@@ -322,15 +477,16 @@ function gateOpen(){                                 // every crystal lit, every
   return room.go;
 }
 
-function solid(x, y){
+function solid(x, y, z){
   const c = x/TS | 0, r = y/TS | 0, t = at(c, r);
-  if('#XDfF/\\>rgb'.includes(t)) return 1;
+  if('#XDfF/\\>rgbOqMNmn'.includes(t)) return 1;
+  if(t === '^') return z || ramped.has(c + ',' + r) ? 0 : 1;   // cliff unless you ramp it
   if(t === 'G') return gateOpen() ? 0 : 1;
-  if(t === 'Y') return pl.shards >= SHARDS ? 0 : 1;
+  if(t === 'Y') return pl.shards >= shardGoal ? 0 : 1;
   if(t === '~') return bridged.has(c + ',' + r) ? 0 : 1;
   return 0;
 }
-const blocked = (x, y, r) => solid(x-r, y-r) || solid(x+r, y-r) || solid(x-r, y+r) || solid(x+r, y+r);
+const blocked = (x, y, r, z) => solid(x-r, y-r, z) || solid(x+r, y-r, z) || solid(x-r, y+r, z) || solid(x+r, y+r, z);
 
 // ---------- rainbow ----------
 // March from the unicorn: bridge water, light crystals and torches, blast
@@ -339,14 +495,14 @@ function cast(x0, y0, dir, len, real, col, depth, out, bnc, skip){
   out = out || [];
   let dx = Math.cos(dir), dy = Math.sin(dir);
   let x = x0, y = y0, sx = x, sy = y, rem = len, bounces = bnc || 0, lastM = '', lastT = '';
-  const segs = [], tiles = [], lit = [];
-  out.push({segs, tiles, lit, col});
+  const segs = [], tiles = [], lit = [], ramps = [];
+  out.push({segs, tiles, lit, ramps, col});
   const end = () => { segs.push({x:sx, y:sy, dx, dy, len:Math.hypot(x - sx, y - sy)}); return out; };
   while(rem > 0){
     const s = Math.min(4, rem);
     x += dx*s; y += dy*s; rem -= s;
     const c = x/TS | 0, r = y/TS | 0, t = at(c, r), id = c + ',' + r;
-    if('#XD'.includes(t) || (t === 'G' && !gateOpen()) || (t === 'Y' && pl.shards < SHARDS)){
+    if('#XDO'.includes(t) || (t === 'G' && !gateOpen()) || (t === 'Y' && pl.shards < shardGoal)){
       x -= dx*s; y -= dy*s; return end();
     }
     if((t === '/' || t === '\\') && bounces < 6 && id !== lastM){
@@ -381,27 +537,64 @@ function cast(x0, y0, dir, len, real, col, depth, out, bnc, skip){
     if(id !== lastT){                                // one entry per tile entered
       lastT = id; lit.push(id);
       if(t === '~') tiles.push(id);
+      if(t === '^') ramps.push(id);                  // a rainbow laid up a cliff is a ramp
     }
     if(real){
+      if(t === 'q'){                                 // pot
+        map[r][c] = '.'; smash(c, r);
+      }
       if(t === 'f'){
         map[r][c] = 'F'; room.go = null;
         part(c*TS + 20, r*TS + 20, 20, '#ff9c3d', 3.4, 34); snd(170, .3, 'sawtooth', .05, 90);
       }
       for(const e of ents){
         if(!e.hp) continue;
-        if(e.t === 'E' && Math.hypot(e.x - x, e.y - y) < 20) kill(e);
-        if(e.t === 'B' && bounces > 0 && !e.iv && Math.hypot(e.x - x, e.y - y) < 36) bossHit(e);
+        const ed = Math.hypot(e.x - x, e.y - y);
+        if('EW'.includes(e.t) && ed < 20) kill(e);
+        if(e.t === 'U' && ed < 22) kill(e);
+        if(e.t === 'o' && ed < 16){ e.hp = 0; part(e.x, e.y, 8, '#8fd8ff', 2, 18, 2); }
+        if(e.t === 'A' && ed < 22 && !e.ch) kill(e);  // a charger is only open when it is not charging
+        if(e.t === 'V' && ed < 24 && !e.iv) thiefHit(e);
+        if(e.t === 'B' && bounces > 0 && !e.iv && ed < 36) bossHit(e);
       }
     }
   }
   return end();
 }
+function bump(e, d, dashKills){                      // enemy touches you
+  const dx = pl.x - e.x, dy = pl.y - e.y;
+  if(dashKills && pl.dash > 0){ kill(e); return; }
+  if(pl.inv > 0 || pl.dash > 0) return;
+  hurt(1);
+  pl.x -= dx/d*22; pl.y -= dy/d*22;
+  if(blocked(pl.x, pl.y, pl.r, pl.z)){ pl.x += dx/d*22; pl.y += dy/d*22; }
+}
 function kill(e){ e.hp = 0; e.pop = 12; part(e.x, e.y, 16, '#b04dff', 3.2, 28); snd(400, .12, 'square', .04, 110); }
+function smash(c, r){                                // a pot, and what was hiding in it
+  part(c*TS + 20, r*TS + 20, 20, '#c98b3f', 3.6, 28, 3);
+  snd(220, .16, 'square', .05, 70);
+  if(Math.random() < .35) ents.push({t:'H', x:c*TS + 20, y:r*TS + 20, hp:1, w:0});
+}
+function thiefHit(e){                                // the colour thief
+  e.hp--; e.iv = 34; e.flash = 14; shake = 7;
+  part(e.x, e.y, 20, MASKC[e.holds || 7], 3.6, 30);
+  snd(300, .2, 'sawtooth', .06, 120);
+  if(e.hp <= 0){
+    e.pop = 16;
+    if(e.holds){                                     // it gives the colour back
+      pl.stolen &= ~e.holds;
+      part(pl.x, pl.y, 34, MASKC[e.holds], 4, 44);
+      tune([600, 900, 1200], 80);
+      e.holds = 0;
+    }
+  }
+}
 function fire(){
   const fan = pl.prism && charge > MAXLEN - 25;      // Prism Horn forks a full charge
   const a0 = Math.atan2(aim.y - pl.y, aim.x - pl.x);
   const parts = [];
-  (fan ? [-.3, 0, .3] : [0]).forEach(a => cast(pl.x, pl.y, a0 + a, charge, 1, 7, 0, parts, 0));
+  const col = (7 & ~pl.stolen) || 7;                 // the thief takes a channel with it
+  (fan ? [-.3, 0, .3] : [0]).forEach(a => cast(pl.x, pl.y, a0 + a, charge, 1, col, 0, parts, 0));
   bows.push({parts, life:BOWLIFE});
   if(bows.length > MAXBOWS) bows.shift();
   resolve();
@@ -413,8 +606,10 @@ function fire(){
 function resolve(){
   bridged = new Set();
   const light = new Map();
+  ramped = new Set();
   for(const b of bows) for(const p of b.parts){
     for(const id of p.tiles) bridged.add(id);
+    for(const id of p.ramps) ramped.add(id);
     for(const id of p.lit) light.set(id, (light.get(id) || 0) | p.col);
   }
   light.forEach((m, id) => {
@@ -480,6 +675,7 @@ function step(){
     if(--p.l <= 0) ps.splice(i, 1);
   }
   if(won){ won++; return; }
+  runF++;
   if(charging) charge = Math.min(MAXLEN, charge + 4);
   if(pl.inv > 0) pl.inv--;
   if(pl.cd > 0) pl.cd--;
@@ -497,8 +693,9 @@ function step(){
       part(fc*TS + 20, fr*TS + 20, 26, '#8878c8', 4.5, 34, 4);
       snd(120, .25, 'square', .07, 40);
     }
-    if(!blocked(pl.x + vx*DSPD, pl.y, pl.r)) pl.x += vx*DSPD;
-    if(!blocked(pl.x, pl.y + vy*DSPD, pl.r)) pl.y += vy*DSPD;
+    if(at(fc, fr) === 'q'){ map[fr][fc] = '.'; smash(fc, fr); }
+    if(!blocked(pl.x + vx*DSPD, pl.y, pl.r, pl.z)) pl.x += vx*DSPD;
+    if(!blocked(pl.x, pl.y + vy*DSPD, pl.r, pl.z)) pl.y += vy*DSPD;
     part(pl.x - vx*14, pl.y - vy*14, 2, 0, 1.6, 18, 2.5);
   } else {
     let vx = (keys.d || keys.arrowright ? 1 : 0) - (keys.a || keys.arrowleft ? 1 : 0);
@@ -506,18 +703,57 @@ function step(){
     if(vx || vy){
       const m = SPD / Math.hypot(vx, vy);
       pl.dir = Math.atan2(vy, vx);
-      if(!blocked(pl.x + vx*m, pl.y, pl.r)) pl.x += vx*m;
-      if(!blocked(pl.x, pl.y + vy*m, pl.r)) pl.y += vy*m;
+      if(pl.push > 0) pl.push--;
+      else if(!vx !== !vy){                          // shove a block, straight on only
+        const fc = (pl.x + vx*(pl.r + 12))/TS | 0, fr = (pl.y + vy*(pl.r + 12))/TS | 0;
+        if(at(fc, fr) === 'O'){
+          const tc = fc + vx, tr = fr + vy, tt = at(tc, tr);
+          if(tt === '.' || tt === '~'){
+            map[fr][fc] = '.'; pl.push = 16;
+            if(tt === '~'){                          // it sinks and fills the water for good
+              map[tr][tc] = '.';
+              part(tc*TS + 20, tr*TS + 20, 26, '#4db6ff', 4, 34);
+              snd(160, .3, 'sine', .06, 60);
+            } else {
+              map[tr][tc] = 'O';
+              part(tc*TS + 20, tr*TS + 20, 8, '#8878c8', 2, 20, 3);
+              snd(90, .16, 'square', .05, 60);
+            }
+          }
+        }
+      }
+      if(!blocked(pl.x + vx*m, pl.y, pl.r, pl.z)) pl.x += vx*m;
+      if(!blocked(pl.x, pl.y + vy*m, pl.r, pl.z)) pl.y += vy*m;
     }
   }
 
   const c = pl.x/TS | 0, r = pl.y/TS | 0, t = at(c, r);
+  if(t === '^' && !pl.z){ pl.z = 1; part(pl.x, pl.y + 8, 8, '#fff', 1.6, 16, 2); }
+  else if(t !== '^' && pl.z){                        // step off the cliff and drop
+    pl.z = 0; part(pl.x, pl.y + 6, 12, '#8878c8', 2.4, 20, 2.5);
+    snd(200, .12, 'triangle', .04, 90);
+  }
   if(t === '~' && !bridged.has(c + ',' + r)){       // the bridge faded underfoot
     part(pl.x, pl.y, 24, '#4db6ff', 4, 30);
     hurt(1); pl.dash = 0; pl.x = pl.spawn[0]; pl.y = pl.spawn[1];
   }
-  if(t === 'T' && !won){ won = 1; tune([784, 988, 1175, 1568], 150, 'triangle', .08); }
+  if(t === 'T' && !won){
+    won = 1; tune([784, 988, 1175, 1568], 150, 'triangle', .08);
+    const k = bestKey();
+    if(!best[k] || runF < best[k]) saveBest(k, runF);
+  }
 
+  for(const [dc, dr] of [[1,0],[-1,0],[0,1],[0,-1]]){
+    const ct = at(c + dc, r + dr);
+    if(ct === 'M' || ct === 'N'){
+      map[r + dr][c + dc] = ct === 'M' ? 'm' : 'n';
+      const x = (c + dc)*TS + 20, y = (r + dr)*TS + 20;
+      if(ct === 'M'){ pl.shards++; part(x, y, 34, 0, 4, 44); }
+      else { pl.keys++; part(x, y, 26, '#ffd84d', 3.4, 36); }
+      shake = 6; tune([523, 784, 1047, 1568], 90, 'triangle', .08);
+      break;
+    }
+  }
   if(pl.keys > 0) for(const [dc, dr] of [[1,0],[-1,0],[0,1],[0,-1]])
     if(at(c + dc, r + dr) === 'D'){
       map[r + dr][c + dc] = '.'; pl.keys--;
@@ -553,8 +789,8 @@ function step(){
     const d = Math.hypot(pl.x - e.x, pl.y - e.y) || 1;
     if(e.t === 'E'){                                // slime
       const dx = pl.x - e.x, dy = pl.y - e.y, sp = 1.15 + Math.sin(tick/20 + e.w)*.35;
-      if(!blocked(e.x + dx/d*sp, e.y, 11)) e.x += dx/d*sp;
-      if(!blocked(e.x, e.y + dy/d*sp, 11)) e.y += dy/d*sp;
+      if(!blocked(e.x + dx/d*sp, e.y, 11, 0)) e.x += dx/d*sp;
+      if(!blocked(e.x, e.y + dy/d*sp, 11, 0)) e.y += dy/d*sp;
       if(d < 26){
         if(pl.dash > 0) kill(e);
         else if(pl.inv === 0){
@@ -594,11 +830,62 @@ function step(){
         snd(70, .45, 'sawtooth', .09, 30);
         if(Math.hypot(pl.x - e.x, pl.y - e.y) < 40) hurt(1);
       }
+    } else if(e.t === 'A'){                          // charger: winds up, then bolts
+      if(e.stun > 0){ e.stun--; }
+      else if(e.ch){
+        if(!blocked(e.x + e.vx, e.y + e.vy, 12, 0)){ e.x += e.vx; e.y += e.vy; }
+        else {
+          e.ch = 0; e.stun = 70; shake = Math.max(shake, 7);
+          part(e.x, e.y, 16, '#ffb84d', 3.4, 26); snd(130, .2, 'square', .06, 50);
+        }
+        if(--e.t2 <= 0) e.ch = 0;
+        part(e.x - e.vx*3, e.y - e.vy*3, 1, '#ffb84d', 1, 14, 2);
+      } else if(d < 280 && (e.tel = (e.tel || 0) + 1) > 42){
+        const a = Math.atan2(pl.y - e.y, pl.x - e.x);
+        e.vx = Math.cos(a)*5.4; e.vy = Math.sin(a)*5.4; e.ch = 1; e.t2 = 80; e.tel = 0;
+        snd(520, .16, 'sawtooth', .05, 210);
+      }
+      if(d < 27) bump(e, d, !e.ch);
+    } else if(e.t === 'U'){                          // turret: lobs bubbles at you
+      if(tick % 100 === 0 && d < 420){
+        const a = Math.atan2(pl.y - e.y, pl.x - e.x);
+        ents.push({t:'o', x:e.x + Math.cos(a)*16, y:e.y + Math.sin(a)*16,
+                   vx:Math.cos(a)*2.7, vy:Math.sin(a)*2.7, hp:1, tmr:160, w:0});
+        snd(320, .12, 'sine', .04, 150);
+      }
+      if(d < 26) bump(e, d, 1);
+    } else if(e.t === 'o'){                          // bubble
+      e.x += e.vx; e.y += e.vy;
+      if(--e.tmr <= 0 || blocked(e.x, e.y, 6, 0)){ e.hp = 0; part(e.x, e.y, 8, '#8fd8ff', 2, 18, 2); }
+      else if(d < 20){ e.hp = 0; part(e.x, e.y, 10, '#8fd8ff', 2.4, 20, 2); bump(e, d, 0); }
+    } else if(e.t === 'W'){                          // bridge weevil: chases you onto a rainbow
+      const id = (e.x/TS | 0) + ',' + (e.y/TS | 0), on = bridged.has(id);
+      const dx = pl.x - e.x, dy = pl.y - e.y, sp = on ? 2.3 : 1.1;
+      if(!blocked(e.x + dx/d*sp, e.y, 10, 0)) e.x += dx/d*sp;
+      if(!blocked(e.x, e.y + dy/d*sp, 10, 0)) e.y += dy/d*sp;
+      if(on){                                        // and gnaws the bridge under itself
+        for(const bw of bows) if(bw.parts.some(q => q.tiles.includes(id))) bw.life -= 1.3;
+        if(tick % 6 === 0) part(e.x, e.y, 1, 0, 1.2, 20, 2);
+      }
+      if(d < 24) bump(e, d, 1);
+    } else if(e.t === 'V'){                          // colour thief
+      const away = e.holds ? -1 : 1;
+      const sp = e.holds ? 2.1 : 1.35;
+      if(!blocked(e.x + (pl.x - e.x)/d*sp*away, e.y, 10, 0)) e.x += (pl.x - e.x)/d*sp*away;
+      if(!blocked(e.x, e.y + (pl.y - e.y)/d*sp*away, 10, 0)) e.y += (pl.y - e.y)/d*sp*away;
+      if(e.x < 30 || e.x > W - 30 || e.y < 30 || e.y > WH - 30) e.holds && (e.hx = 0);
+      if(d < 28 && !e.holds && !pl.stolen){
+        const av = [1, 2, 4].filter(b => !(pl.stolen & b));
+        const b = av[Math.random()*av.length | 0];
+        pl.stolen |= b; e.holds = b; shake = 9;
+        part(pl.x, pl.y, 24, MASKC[b], 3.8, 34);
+        snd(520, .32, 'sawtooth', .07, 110);
+      }
     } else if(d < 24){                               // pickups
       e.hp = 0;
       if(e.t === 'K'){ pl.keys++; part(e.x, e.y, 18, '#ffd84d', 3, 30); tune([700, 1000], 70); }
       else if(e.t === 'H'){ if(pl.hp < 3){ pl.hp++; part(e.x, e.y, 18, '#ff5470', 3, 30); tune([600, 900], 70); } else e.hp = 1; }
-      else if(e.t === 'R'){ part(e.x, e.y, 30, BANDS[pl.shards], 4, 44); pl.shards++; tune([600, 800, 1000, 1300], 60); }
+      else if(e.t === 'R'){ part(e.x, e.y, 30, BANDS[pl.shards % 7], 4, 44); pl.shards++; tune([600, 800, 1000, 1300], 60); }
       else if(e.t === 'P'){ pl.prism = 1; part(e.x, e.y, 50, 0, 4.5, 60, 4); shake = 8; tune([523, 784, 1047, 1568], 90, 'triangle', .08); }
     }
   }
@@ -613,9 +900,11 @@ function drawBow(b){
     const nx = -s.dy, ny = s.dx, ex = s.x + s.dx*s.len, ey = s.y + s.dy*s.len;
     g.strokeStyle = '#ffffff33'; g.lineWidth = 46;
     g.beginPath(); g.moveTo(s.x, s.y); g.lineTo(ex, ey); g.stroke();
-    (STRIPES[p.col] || BANDS).forEach((col, i) => {
+    const white = p.col === 7;
+    BANDS.forEach((col, i) => {
       const o = (i - 3) * 5.8;
-      g.strokeStyle = col; g.lineWidth = 6;
+      g.globalAlpha = a * (white ? 1 : .5 + Math.abs(3 - i)/6);      // banded, in its own hue
+      g.strokeStyle = white ? col : MASKC[p.col]; g.lineWidth = 6;
       g.beginPath(); g.moveTo(s.x + nx*o, s.y + ny*o); g.lineTo(ex + nx*o, ey + ny*o); g.stroke();
     });
   }
@@ -626,7 +915,9 @@ function unicorn(){
   g.save(); g.translate(pl.x, pl.y); g.rotate(pl.dir);
   if(pl.inv > 0) g.globalAlpha = pl.inv % 10 < 5 ? .4 : 1;
   const b = Math.sin(tick/(pl.dash ? 3 : 6)) * (pl.dash ? 2.2 : 1.2);
-  g.fillStyle = '#0008'; g.beginPath(); g.ellipse(-1, 5, 18, 13, 0, 0, 7); g.fill();
+  g.fillStyle = '#0008';
+  ell(-1, 5 + (pl.z ? 7 : 0), 18, 13);
+  if(pl.z) g.translate(0, -6);                                        // up on the plateau
   g.lineCap = 'round'; g.lineWidth = 3.4;
   BANDS.forEach((c, i) => {                                           // tail
     g.strokeStyle = c; const a = (i - 3) * .17;
@@ -634,30 +925,34 @@ function unicorn(){
     g.lineTo(-14 - Math.cos(a)*13, b + Math.sin(a)*13); g.stroke();
   });
   g.fillStyle = '#fff'; g.strokeStyle = '#2a2350'; g.lineWidth = 2;
-  g.beginPath(); g.ellipse(-2, b, 16, 11, 0, 0, 7); g.fill(); g.stroke();
+  ell(-2, b, 16, 11); g.stroke();
   g.fillStyle = '#f2eefc';
   [[-9,-9],[-9,9],[7,-9],[7,9]].forEach(([x, y]) => {
-    g.beginPath(); g.ellipse(x, y + b*.5, 4, 3, 0, 0, 7); g.fill();
+    ell(x, y + b*.5, 4, 3);
   });
   g.lineWidth = 3.2;
   BANDS.forEach((c, i) => {                                           // mane
+    g.globalAlpha = ((i < 3 ? 1 : i < 5 ? 2 : 4) & pl.stolen) ? .15 : 1;   // the thief's take shows
     g.strokeStyle = c;
     g.beginPath(); g.moveTo(6, b - 7.5 + i*2.5); g.lineTo(-3, b - 7.5 + i*2.5); g.stroke();
   });
+  g.globalAlpha = pl.inv > 0 && pl.inv % 10 < 5 ? .4 : 1;
   g.fillStyle = '#fff'; g.strokeStyle = '#2a2350';
-  g.beginPath(); g.ellipse(12, b, 8.5, 7, 0, 0, 7); g.fill(); g.stroke();
+  ell(12, b, 8.5, 7); g.stroke();
   g.beginPath(); g.moveTo(9, b - 8); g.lineTo(12, b - 4); g.lineTo(7, b - 4); g.fill();
   g.beginPath(); g.moveTo(9, b + 8); g.lineTo(12, b + 4); g.lineTo(7, b + 4); g.fill();
   g.fillStyle = pl.prism ? '#dff3ff' : '#ffd84d';                     // horn (prism = crystal)
   g.beginPath(); g.moveTo(17, b - 3.5); g.lineTo(28, b); g.lineTo(17, b + 3.5); g.fill();
   g.fillStyle = '#222';
-  g.beginPath(); g.arc(15, b - 4.5, 1.6, 0, 7); g.fill();
-  g.beginPath(); g.arc(15, b + 4.5, 1.6, 0, 7); g.fill();
+  circ(15, b - 4.5, 1.6);
+  circ(15, b + 4.5, 1.6);
   g.fillStyle = '#ffb0c8';
-  g.beginPath(); g.arc(19.5, b, 2, 0, 7); g.fill();
+  circ(19.5, b, 2);
   g.restore(); g.globalAlpha = 1;
 }
 
+const circ = (x, y, r) => { g.beginPath(); g.arc(x, y, r, 0, 7); g.fill(); };
+const ell = (x, y, a, b) => { g.beginPath(); g.ellipse(x, y, a, b, 0, 0, 7); g.fill(); };
 function star(x, y, n, ri, ro, rot){
   g.beginPath();
   for(let i = 0; i < n*2; i++){
@@ -674,6 +969,13 @@ function drawWorld(){
       g.fillStyle = '#4a3d78'; g.fillRect(x, y, TS, TS);
       g.fillStyle = '#6b5aa8'; g.fillRect(x + 2, y + 2, TS - 4, TS - 10);
       g.fillStyle = '#8878c8'; g.fillRect(x + 2, y + 2, TS - 4, 4);
+    } else if(t === '^'){                            // high ground: lighter, with a cliff face
+      const up = ramped.has(c + ',' + r);
+      g.fillStyle = '#1c1738'; g.fillRect(x, y, TS, TS);
+      g.fillStyle = up ? '#9c86e8' : '#7d6cc0'; g.fillRect(x, y - 4, TS, TS - 2);
+      g.fillStyle = up ? '#d8c9ff' : '#a495e0'; g.fillRect(x, y - 4, TS, 6);
+      g.fillStyle = '#00000066'; g.fillRect(x, y + TS - 6, TS, 6);
+      g.fillStyle = '#ffffff10'; g.fillRect(x + 4, y + 6, 4, 4);
     } else if(t === '~'){
       g.fillStyle = '#1e4f96'; g.fillRect(x, y, TS, TS);
       g.fillStyle = '#3a78c8';
@@ -713,19 +1015,37 @@ function drawWorld(){
       g.fillStyle = '#3a3260'; g.fillRect(x + 12, y + 14, 16, 22);
       g.fillStyle = t === 'F' ? '#ffe14d' : '#5c5580';
       const s = t === 'F' ? 3 + Math.sin(tick/5)*1.6 : 0;
-      g.beginPath(); g.arc(mx, y + 13, 7 + s, 0, 7); g.fill();
-      if(t === 'F'){ g.globalAlpha = .35; g.beginPath(); g.arc(mx, y + 13, 18 + s, 0, 7); g.fill(); g.globalAlpha = 1; }
+      circ(mx, y + 13, 7 + s);
+      if(t === 'F'){ g.globalAlpha = .35; circ(mx, y + 13, 18 + s); g.globalAlpha = 1; }
+    } else if(t === 'q'){                            // pot
+      g.fillStyle = '#c98b3f';
+      ell(mx, my + 3, 13, 14);
+      g.fillStyle = '#8a5a2a'; g.fillRect(x + 8, y + 5, 24, 5);
+      g.fillStyle = '#ffffff22'; ell(mx - 4, my, 3, 6);
+    } else if(t === 'O'){                            // push block
+      g.fillStyle = '#6b5aa8'; g.fillRect(x + 2, y + 2, TS - 4, TS - 4);
+      g.fillStyle = '#8878c8'; g.fillRect(x + 5, y + 5, TS - 10, TS - 14);
+      g.fillStyle = '#4a3d78'; g.fillRect(x + 5, y + TS - 11, TS - 10, 6);
+      g.strokeStyle = '#2a2350'; g.lineWidth = 2; g.strokeRect(x + 2.5, y + 2.5, TS - 5, TS - 5);
+    } else if('MNmn'.includes(t)){                   // chest
+      const open = t === 'm' || t === 'n', gold = t === 'M' || t === 'm';
+      g.fillStyle = '#8a5a2a'; g.fillRect(x + 4, y + 12, TS - 8, TS - 16);
+      g.fillStyle = gold ? '#ffd84d' : '#c98b3f';
+      g.fillRect(x + 4, open ? y + 2 : y + 8, TS - 8, open ? 6 : 10);
+      if(!open){ g.fillStyle = '#5c3a18'; g.fillRect(mx - 3, y + 14, 6, 7); }
+      else { g.globalAlpha = .3; g.fillStyle = '#ffe14d';
+             circ(mx, my, 16); g.globalAlpha = 1; }
     } else if(t === 'D'){
       g.fillStyle = '#8a5a2a'; g.fillRect(x, y, TS, TS);
       g.fillStyle = '#c98b3f'; g.fillRect(x + 4, y + 4, TS - 8, TS - 8);
-      g.fillStyle = '#5c3a18'; g.beginPath(); g.arc(mx, my, 5, 0, 7); g.fill();
+      g.fillStyle = '#5c3a18'; circ(mx, my, 5);
     } else if(t === 'G'){
       const open = gateOpen();
       g.fillStyle = open ? '#2c2650' : '#8c8ca8';
       for(let i = 0; i < 4; i++) g.fillRect(x + 3 + i*9, y + (open ? 0 : 2), 5, open ? 6 : TS - 4);
     } else if(t === 'Y'){                            // sun gate: one bar per colour held
-      const open = pl.shards >= SHARDS;
-      for(let i = 0; i < SHARDS; i++){
+      const open = pl.shards >= shardGoal;
+      for(let i = 0; i < shardGoal; i++){
         g.fillStyle = i < pl.shards ? BANDS[i] : '#4b4468';
         g.fillRect(x + 2 + i*5.3, y + (open ? 0 : 2), 4, open ? 6 : TS - 4);
       }
@@ -746,7 +1066,7 @@ function drawWorld(){
       g.fillStyle = '#ffffff55'; g.fillRect(x + 7, y + 7, 8, TS - 14);
     } else if(t === 'T'){
       g.fillStyle = '#ffb84d'; g.globalAlpha = .3;
-      g.beginPath(); g.arc(mx, my, 26 + Math.sin(tick/15)*3, 0, 7); g.fill();
+      circ(mx, my, 26 + Math.sin(tick/15)*3);
       g.globalAlpha = 1; g.fillStyle = '#ffe14d';
       star(mx, my, 8, 7, 19, tick/60);
     }
@@ -762,7 +1082,7 @@ function drawWorld(){
       g.stroke();
       const e = p.segs[p.segs.length - 1];
       g.fillStyle = '#ffffffaa';
-      g.beginPath(); g.arc(e.x + e.dx*e.len, e.y + e.dy*e.len, 4, 0, 7); g.fill();
+      circ(e.x + e.dx*e.len, e.y + e.dy*e.len, 4);
     }
     g.setLineDash([]);
     const f = (charge - MINLEN)/(MAXLEN - MINLEN);
@@ -778,18 +1098,82 @@ function drawWorld(){
     if(!e.hp) continue;
     if(e.t === 'E'){
       const s = Math.sin(tick/8 + e.w) * 2;
-      g.fillStyle = '#0005'; g.beginPath(); g.ellipse(e.x, e.y + 8, 12, 5, 0, 0, 7); g.fill();
+      g.fillStyle = '#0005'; ell(e.x, e.y + 8, 12, 5);
       g.fillStyle = '#b04dff';
-      g.beginPath(); g.ellipse(e.x, e.y, 12 + s, 12 - s, 0, 0, 7); g.fill();
+      ell(e.x, e.y, 12 + s, 12 - s);
       g.fillStyle = '#fff';
       g.beginPath(); g.arc(e.x - 4, e.y - 2, 3, 0, 7); g.arc(e.x + 4, e.y - 2, 3, 0, 7); g.fill();
       g.fillStyle = '#222';
       g.beginPath(); g.arc(e.x - 4, e.y - 2, 1.4, 0, 7); g.arc(e.x + 4, e.y - 2, 1.4, 0, 7); g.fill();
+    } else if(e.t === 'A'){                          // charger
+      const wind = !e.ch && e.tel > 20 && tick % 6 < 3;
+      g.fillStyle = '#0005'; ell(e.x, e.y + 9, 13, 5);
+      g.fillStyle = e.stun > 0 ? '#8a8ab0' : wind ? '#fff' : '#ff8a3d';
+      g.beginPath();
+      for(let i = 0; i < 12; i++){
+        const a = i*Math.PI/6, rr = i % 2 ? 9 : 15;
+        g.lineTo(e.x + Math.cos(a)*rr, e.y + Math.sin(a)*rr);
+      }
+      g.fill();
+      g.fillStyle = '#2a2350';
+      g.beginPath(); g.arc(e.x - 4, e.y - 2, 2, 0, 7); g.arc(e.x + 4, e.y - 2, 2, 0, 7); g.fill();
+      if(e.stun > 0){
+        g.strokeStyle = '#ffe14d'; g.lineWidth = 2;
+        for(let i = 0; i < 3; i++){
+          const a = tick/6 + i*2.1;
+          g.beginPath(); g.arc(e.x + Math.cos(a)*16, e.y - 18, 3, 0, 7); g.stroke();
+        }
+      }
+    } else if(e.t === 'U'){                          // bubble turret
+      g.fillStyle = '#0005'; ell(e.x, e.y + 10, 14, 5);
+      g.fillStyle = '#3f7a8c'; circ(e.x, e.y, 15);
+      g.fillStyle = '#8fd8ff';
+      const a = Math.atan2(pl.y - e.y, pl.x - e.x);
+      circ(e.x + Math.cos(a)*7, e.y + Math.sin(a)*7, 7);
+      g.fillStyle = '#2a2350'; circ(e.x + Math.cos(a)*10, e.y + Math.sin(a)*10, 3);
+    } else if(e.t === 'o'){                          // bubble
+      g.fillStyle = '#8fd8ff'; g.globalAlpha = .75;
+      circ(e.x, e.y, 8); g.globalAlpha = 1;
+      g.fillStyle = '#fff'; circ(e.x - 3, e.y - 3, 2.4);
+    } else if(e.t === 'W'){                          // bridge weevil
+      const w = Math.sin(tick/5 + e.w)*2;
+      g.fillStyle = '#0005'; ell(e.x, e.y + 7, 10, 4);
+      g.fillStyle = '#4b3a6e';
+      ell(e.x, e.y, 11 + w*.4, 8);
+      g.strokeStyle = '#8878c8'; g.lineWidth = 2;
+      for(let i = -1; i < 2; i += 2){
+        g.beginPath(); g.moveTo(e.x - 3, e.y + i*6); g.lineTo(e.x - 9, e.y + i*10 + w); g.stroke();
+        g.beginPath(); g.moveTo(e.x + 3, e.y + i*6); g.lineTo(e.x + 9, e.y + i*10 - w); g.stroke();
+      }
+      g.fillStyle = '#ffe14d';
+      g.beginPath(); g.arc(e.x + 6, e.y - 2, 2, 0, 7); g.arc(e.x + 6, e.y + 2, 2, 0, 7); g.fill();
+    } else if(e.t === 'V'){                          // colour thief
+      const w = Math.sin(tick/10 + e.w)*3, hit = e.flash > 0 && e.flash % 6 < 3;
+      g.fillStyle = '#0005'; ell(e.x, e.y + 14, 13, 5);
+      g.fillStyle = hit ? '#fff' : '#5b4f8e';
+      g.beginPath(); g.moveTo(e.x, e.y - 22 + w); g.lineTo(e.x + 17, e.y + 16); g.lineTo(e.x - 17, e.y + 16); g.fill();
+      g.fillStyle = hit ? '#fff' : '#8878c8';                       // hood
+      g.beginPath(); g.moveTo(e.x, e.y - 20 + w); g.lineTo(e.x + 11, e.y + 2 + w); g.lineTo(e.x - 11, e.y + 2 + w); g.fill();
+      g.fillStyle = '#1c1738';
+      ell(e.x, e.y - 3 + w, 9, 6);
+      g.fillStyle = '#ffe14d';
+      g.beginPath(); g.arc(e.x - 4, e.y - 3 + w, 2.4, 0, 7); g.arc(e.x + 4, e.y - 3 + w, 2.4, 0, 7); g.fill();
+      BANDS.forEach((cc, i) => {                                    // stolen-colour trim
+        g.fillStyle = cc; g.fillRect(e.x - 15 + i*4.3, e.y + 12, 4, 4);
+      });
+      if(e.holds){
+        g.fillStyle = MASKC[e.holds]; g.globalAlpha = .35;
+        circ(e.x, e.y + 18, 12 + Math.sin(tick/8)*2); g.globalAlpha = 1;
+        g.fillStyle = MASKC[e.holds];
+        circ(e.x, e.y + 18, 6);
+      }
+      g.fillStyle = '#0007'; g.fillRect(e.x - 22, e.y - 30, 44, 6);
+      g.fillStyle = '#b04dff'; g.fillRect(e.x - 21, e.y - 29, 42*e.hp/3, 4);
     } else if(e.t === 'C'){                          // rain cloud
       g.fillStyle = '#5b6480';
       const w = Math.sin(tick/16 + e.w)*3;
       [[-13,0,13],[0,-6,15],[13,0,12]].forEach(([dx, dy, rr]) => {
-        g.beginPath(); g.arc(e.x + dx, e.y + dy + w*.3, rr, 0, 7); g.fill();
+        circ(e.x + dx, e.y + dy + w*.3, rr);
       });
       g.strokeStyle = '#8fa3c8'; g.lineWidth = 2.5; g.lineCap = 'round';
       for(let i = 0; i < 4; i++){
@@ -800,12 +1184,12 @@ function drawWorld(){
       const s = Math.sin(tick/14)*5, hit = e.flash > 0 && e.flash % 6 < 3;
       g.fillStyle = hit ? '#fff' : (room.drain > .3 ? '#6a6f8c' : '#4a4a78');
       [[-34,4,26],[0,-10,34],[34,4,26],[-16,16,22],[18,16,22]].forEach(([dx, dy, rr]) => {
-        g.beginPath(); g.arc(e.x + dx, e.y + dy + s*.4, rr + s*.2, 0, 7); g.fill();
+        circ(e.x + dx, e.y + dy + s*.4, rr + s*.2);
       });
       g.fillStyle = '#ffe14d';                       // eye
-      g.beginPath(); g.ellipse(e.x, e.y, 15, 10 + Math.sin(tick/9)*2, 0, 0, 7); g.fill();
+      ell(e.x, e.y, 15, 10 + Math.sin(tick/9)*2);
       g.fillStyle = '#2a2350';
-      g.beginPath(); g.arc(e.x + (pl.x > e.x ? 4 : -4), e.y, 6, 0, 7); g.fill();
+      circ(e.x + (pl.x > e.x ? 4 : -4), e.y, 6);
       g.fillStyle = '#0007'; g.fillRect(e.x - 62, e.y - 62, 124, 9);
       g.fillStyle = '#ff4d5e'; g.fillRect(e.x - 60, e.y - 60, 120*e.hp/5, 5);
     } else if(e.t === 'L'){                          // lightning telegraph
@@ -813,7 +1197,7 @@ function drawWorld(){
       g.strokeStyle = '#ffe14d'; g.lineWidth = 3; g.globalAlpha = .3 + f*.7;
       g.beginPath(); g.arc(e.x, e.y, 40*(1 - f) + 8, 0, 7); g.stroke();
       g.globalAlpha = .25; g.fillStyle = '#ffe14d';
-      g.beginPath(); g.arc(e.x, e.y, 38, 0, 7); g.fill(); g.globalAlpha = 1;
+      circ(e.x, e.y, 38); g.globalAlpha = 1;
       if(e.tmr < 8){
         g.strokeStyle = '#fff'; g.lineWidth = 6;
         g.beginPath(); g.moveTo(e.x - 8, 0); g.lineTo(e.x + 6, e.y - 30); g.lineTo(e.x - 4, e.y - 14);
@@ -821,7 +1205,7 @@ function drawWorld(){
       }
     } else if(e.t === 'K'){
       g.fillStyle = '#ffd84d';
-      g.beginPath(); g.arc(e.x - 4, e.y, 5, 0, 7); g.fill();
+      circ(e.x - 4, e.y, 5);
       g.fillRect(e.x, e.y - 2, 13, 4); g.fillRect(e.x + 9, e.y, 4, 6);
     } else if(e.t === 'H'){
       g.fillStyle = '#ff5470'; const b = Math.sin(tick/12);
@@ -830,7 +1214,7 @@ function drawWorld(){
     } else if(e.t === 'R'){                          // colour shard
       const b = Math.sin(tick/14)*3;
       g.globalAlpha = .25; g.fillStyle = '#fff';
-      g.beginPath(); g.arc(e.x, e.y + b, 20, 0, 7); g.fill(); g.globalAlpha = 1;
+      circ(e.x, e.y + b, 20); g.globalAlpha = 1;
       BANDS.forEach((col, i) => {
         g.fillStyle = col;
         g.beginPath();
@@ -842,7 +1226,7 @@ function drawWorld(){
     } else if(e.t === 'P'){                          // prism horn
       const b = Math.sin(tick/12)*3;
       g.globalAlpha = .3; g.fillStyle = '#dff3ff';
-      g.beginPath(); g.arc(e.x, e.y + b, 22 + Math.sin(tick/9)*3, 0, 7); g.fill(); g.globalAlpha = 1;
+      circ(e.x, e.y + b, 22 + Math.sin(tick/9)*3); g.globalAlpha = 1;
       g.fillStyle = '#dff3ff';
       g.beginPath(); g.moveTo(e.x, e.y - 16 + b); g.lineTo(e.x + 8, e.y + 14 + b);
       g.lineTo(e.x - 8, e.y + 14 + b); g.fill();
@@ -856,7 +1240,7 @@ function drawWorld(){
 
   for(const p of ps){
     g.globalAlpha = Math.min(1, p.l/p.m * 1.6); g.fillStyle = p.c;
-    g.beginPath(); g.arc(p.x, p.y, p.r, 0, 7); g.fill();
+    circ(p.x, p.y, p.r);
   }
   g.globalAlpha = 1;
 }
@@ -873,7 +1257,7 @@ function minimap(){
     g.fillRect(x, y, s - 2, s - 2);
     if(r.ents && r.ents.some(e => e.t === 'R' && e.hp)){
       g.fillStyle = '#ffe14d';
-      g.beginPath(); g.arc(x + s/2 - 1, y + s/2 - 1, 2, 0, 7); g.fill();
+      circ(x + s/2 - 1, y + s/2 - 1, 2);
     }
   });
 }
@@ -902,17 +1286,25 @@ function draw(){
   g.fillStyle = '#ffd84d'; g.font = 'bold 15px system-ui';
   g.fillText('⚑ ' + pl.keys, 106, 27);
   g.fillStyle = pl.cd > 0 ? '#ffffff33' : '#5ddb62';              // gallop lamp
-  g.beginPath(); g.arc(152, 22, 6, 0, 7); g.fill();
+  circ(152, 22, 6);
   g.fillStyle = pl.prism ? '#dff3ff' : '#ffffff22';               // prism horn
   g.beginPath(); g.moveTo(174, 13); g.lineTo(182, 29); g.lineTo(166, 29); g.fill();
-  for(let i = 0; i < SHARDS; i++){                                // the seven colours
+  for(let i = 0; i < shardGoal; i++){                                // the seven colours
     g.fillStyle = i < pl.shards ? BANDS[i] : '#ffffff1a';
-    g.beginPath(); g.arc(200 + i*15, 21, 5, 0, 7); g.fill();
+    circ(200 + i*15, 21, 5);
   }
   g.fillStyle = '#fff'; g.font = 'bold 17px system-ui'; g.textAlign = 'center';
   g.fillText(room.name, W/2 + 40, 27);
+  g.fillStyle = '#fff'; g.font = 'bold 14px system-ui';
+  g.fillText(clock(runF), 212 + shardGoal*15, 26);
+  if(pl.stolen){                                     // the thief is holding one of your colours
+    g.fillStyle = MASKC[pl.stolen]; g.globalAlpha = .5;
+    circ(178, 34, 5); g.globalAlpha = 1;
+    g.strokeStyle = '#ff5470'; g.lineWidth = 2;
+    g.beginPath(); g.moveTo(174, 38); g.lineTo(182, 30); g.stroke();
+  }
   g.textAlign = 'right'; g.fillStyle = '#ffffff88'; g.font = '11px system-ui';
-  g.fillText('WASD · mouse: rainbow · shift: gallop · M: mute · R: restart', W - 16, 27);
+  g.fillText(mode === 'story' ? 'shift: gallop · esc: menu' : 'seed ' + seed, W - 16, 27);
   g.textAlign = 'left';
 
   if(won){
@@ -920,11 +1312,59 @@ function draw(){
     g.textAlign = 'center'; g.fillStyle = '#ffe14d'; g.font = 'bold 40px system-ui';
     g.fillText('The Sun Door opens!', W/2, H/2);
     g.fillStyle = '#fff'; g.font = '18px system-ui';
-    g.fillText('press R to ride again', W/2, H/2 + 36);
+    const k = bestKey();
+    g.fillText(clock(runF) + '   best ' + clock(best[k] || runF) + '   R: again  esc: menu', W/2, H/2 + 36);
     g.textAlign = 'left';
   }
 }
 
-newGame();
-(function loop(){ step(); draw(); requestAnimationFrame(loop); })();
+function title(){
+  tick++;
+  g = gm; gm.setTransform(1,0,0,1,0,0);
+  gm.fillStyle = '#12102a'; gm.fillRect(0, 0, W, H);
+  for(let i = 0; i < 60; i++){                       // drifting motes
+    const x = (i*137 + tick*(.3 + i%3*.2)) % W, y = (i*97) % H;
+    g.globalAlpha = .25; g.fillStyle = BANDS[i % 7];
+    circ(x, y, 2 + i%3);
+  }
+  g.globalAlpha = 1;
+  BANDS.forEach((c, i) => {                          // an arch behind the menu
+    g.strokeStyle = c; g.lineWidth = 9;
+    g.beginPath(); g.arc(W/2, 330, 250 - i*10, Math.PI, 0); g.stroke();
+  });
+  g.fillStyle = '#12102ae6'; g.fillRect(W/2 - 260, 120, 520, 300);
+  g.textAlign = 'center';
+  g.fillStyle = '#fff'; g.font = 'bold 44px system-ui';
+  g.fillText('RAINBOW UNICORN', W/2, 168);
+  g.fillStyle = '#ffe14d'; g.font = '16px system-ui';
+  g.fillText('Isles of the Sun Door', W/2, 194);
+  const rows = [['1  Story', 'the hand built isles'],
+                ['2  Daily', 'same for everyone: ' + daily()],
+                ['3  Random', 'a fresh seed'],
+                ['4  Boss Rush', 'straight to the storm']];
+  rows.forEach(([a, b], i) => {
+    const y = 250 + i*46, on = i === pick;
+    g.fillStyle = on ? '#ffffff18' : '#ffffff08';
+    g.fillRect(W/2 - 250, y - 22, 500, 40);
+    g.textAlign = 'left';
+    g.fillStyle = on ? '#ffe14d' : '#fff'; g.font = 'bold 18px system-ui';
+    g.fillText(a, W/2 - 236, y + 5);
+    g.fillStyle = '#ffffff88'; g.font = '13px system-ui';
+    g.fillText(b, W/2 - 90, y + 4);
+    const bt = best[MODES[i] === 'daily' ? 'daily' + daily() : MODES[i]];
+    if(bt){
+      g.textAlign = 'right'; g.fillStyle = '#5ddb62';
+      g.fillText('best ' + clock(bt), W/2 + 236, y + 4);
+    }
+  });
+  g.textAlign = 'center'; g.fillStyle = '#ffffff66'; g.font = '12px system-ui';
+  g.fillText('hold mouse: charge  ·  release: throw  ·  shift: gallop  ·  M: mute', W/2, H - 26);
+  g.textAlign = 'left';
+}
+
+loadBest();
+(function loop(){
+  if(scene === 'title') title(); else { step(); draw(); }
+  requestAnimationFrame(loop);
+})();
 </script>
