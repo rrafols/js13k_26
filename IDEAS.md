@@ -5,7 +5,7 @@ Hook notes point at where each one plugs into `index.html`.
 
 ## Rainbow upgrades (the core verb)
 
-- [ ] **Prism Horn** — a full charge splits the beam into three at ±25°. Hook: loop `cast()` over an angle list.
+- [x] **Prism Horn** — a full charge splits the beam into three at ±25°. Hook: loop `cast()` over an angle list.
 - [x] **Mirror tiles** (`/` `\`) — the beam reflects instead of stopping. Reflection is a branch in the `cast()` marcher.
 - [ ] **Colored rainbows** — cycle which band you throw; colored gates only open to a matching hue, and armored slimes resist one color. One `map` char per gate color.
 - [ ] **Drawn paths (Phantom Hourglass boomerang)** — drag to draw a polyline instead of aiming a straight beam; the rainbow follows the curve around walls. Store points on the bow; `drawBow` becomes a polyline stroke.
@@ -35,16 +35,16 @@ Hook notes point at where each one plugs into `index.html`.
 ## Enemies and bosses
 
 - [ ] **Bridge-walkers** — slimes that follow you onto your own rainbow and fall when it fades.
-- [ ] **Rain-cloud** — erases the rainbow it drifts over; outrun it or kill it.
+- [x] **Rain-cloud** — erases the rainbow it drifts over; outrun it or kill it.
 - [ ] **Bubble shooter** — a stationary turret that forces you to bridge under cover.
 - [ ] **Color thief mini-boss** — steals one band; you lose that color from your beam until you beat it.
-- [ ] **Storm boss** — a cloud whose eye only opens after you bounce a rainbow off two mirrors into it; phases flood the arena and re-drain its color.
+- [x] **Storm boss** — a cloud whose eye only opens after you bounce a rainbow off two mirrors into it; phases flood the arena and re-drain its color.
 
 ## World and progression
 
-- [ ] **Seven rainbow shards**, one per color, in optional rooms; the Sun Door needs all seven.
+- [x] **Seven rainbow shards**, one per color, in optional rooms; the Sun Door needs all seven.
 - [ ] **Heart pieces**, four to a container.
-- [ ] **Minimap in the HUD** — rooms are already a graph via `links`; draw visited nodes.
+- [x] **Minimap in the HUD** — rooms are already a graph via `links`; draw visited nodes.
 - [x] **Grayscale drain** — drained rooms render through a `grayscale()` filter on the world buffer and flood back with color when restored.
 - [ ] **localStorage save** and a title screen.
 - [ ] **NPC unicorns** with typewriter text boxes and a hub village.
@@ -52,14 +52,36 @@ Hook notes point at where each one plugs into `index.html`.
 ## Juice
 
 - [x] **Particles** — throw burst, gallop trail, crystal/torch sparks, slime pop, splash, pickup shimmer, color-restore rain.
-- [ ] **Screen shake** on hits and smashes.
+- [x] **Screen shake** on hits and smashes.
 - [ ] **Room-slide transition** instead of the hard cut in `enter()`.
-- [ ] **WebAudio synth** — rising arpeggio on the throw, a chime per crystal, hoofbeats.
+- [x] **WebAudio synth** — rising arpeggio on the throw, a chime per crystal, hoofbeats.
+
+## Killer feature (the "this is 13KB?" moment)
+
+**The Chromatic Light Engine.** Beams stop being decorative rainbows and become
+actual light: each carries an RGB mask. A prism tile splits white into red,
+green and blue paths; mirrors reflect (already built); filter tiles subtract a
+channel; crystals and gates demand an exact colour; and two beams crossing the
+same tile **mix additively** — red + green lights a yellow gate. The room's own
+palette is painted by whatever light currently runs through it, so a drained
+room visibly recolours as you solve it: the puzzle state *is* the picture.
+
+Why it earns the wow: it is a small optics simulator — split, reflect, absorb,
+mix — driving both the puzzles and the rendering, and it costs roughly 1KB on
+top of the marcher in `cast()`, which already walks the grid and already
+bounces. Everything else in the dungeon (crystals, torches, gates, the storm's
+armour) becomes a colour condition for free.
+
+Sketch: give each beam `col = [r,g,b]`; `'>' ` prism tile emits three children
+with masks 100/010/001; `'-'` filter multiplies the mask; keep a per-tile
+`lightMask` accumulated each frame from all live beams; crystals compare their
+required mask to the tile's accumulated one; the floor tint of a tile lerps
+toward its accumulated light. Rendering reuses `BANDS` for the mask colours.
 
 ## Next five (recommended order)
 
-1. **Storm boss** — the capstone that uses mirrors, gallop and drain at once.
-2. **Prism Horn as a found item** — retrofits every existing room and adds real progression.
-3. **Rain-cloud enemy** — turns fading bridges into a chase.
-4. **Color shards + HUD minimap** — makes the corridor an explorable dungeon.
-5. **Audio and screen shake** — the cheapest large gain in feel.
+1. **Procedural dungeons from a seed** — turn the room strings into a generator: place rooms on a graph, distribute crystals/torches/mirrors/shards by rule, guarantee solvability by construction. Infinite runs and a daily seed for a few hundred bytes.
+2. **Two-level rooms (rainbow ramps)** — an upward cast becomes a ramp to an upper tier; the player gains a `z`. The Minish Cap trick, and the biggest fresh puzzle space left.
+3. **Enemy roster + the colour thief mini-boss** — a charger, a bubble turret, a bridge-walker, and a thief that steals one band of your rainbow until you beat it.
+4. **Title screen, save, and daily run** — localStorage best time, a boss-rush mode, and a seeded daily. Cheap, and it makes the game replayable.
+5. **Push-blocks, pots and chests** — the classic dungeon furniture that makes rooms feel authored rather than generated.
