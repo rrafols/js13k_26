@@ -12,7 +12,8 @@
     "dist": "node build/build.mjs && ls -l dist/release.zip",
     "verify": "node build/build.mjs --fast && node verify.mjs",
     "test": "node tests/dungeon.test.mjs && node tests/light.test.mjs && node tests/storm.test.mjs && node tests/runs.test.mjs && node tests/crossing.sim.mjs",
-    "check": "npm run test && npm run verify"
+    "check": "npm run test && npm run verify",
+    "heatmap": "node build/build.mjs && open dist/heatmap.html"
   },
   "devDependencies": {
     "roadroller": "^2.1.0",

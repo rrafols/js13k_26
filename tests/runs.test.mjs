@@ -1,6 +1,6 @@
 // procedural runs, ramps, roster, modes, furniture
 import { load, helpers } from './harness.mjs'
-const a = load(), { TS, mid, s, shoot, T, done, at, go } = helpers(a)
+const a = load(), { TS, mid, s, shoot, T, done, at, go, inRun } = helpers(a)
 // ---------- 1. procedural dungeons ----------
 const d1=a.gen(12345,9), d2=a.gen(12345,9), d3=a.gen(999,9);
 T('a seed reproduces its dungeon exactly', JSON.stringify(d1)===JSON.stringify(d2));
@@ -117,7 +117,13 @@ T('beating it returns the colour', th.hp<=0 && a.pl.stolen===0);
 
 // ---------- 5. modes, clock, saves ----------
 a.start('story');
-T('story mode uses the hand built isles', a.DUN===a.SRC && a.shardGoal===7 && a.scene==='intro');
+T('story opens on the hand built rooms, then grows from a seed', (() => {
+  const d = a.DUN;
+  const authored = d.slice(0, 5).map(r => r.name).join();
+  return d !== a.SRC && d.length > 12 && a.scene === 'intro' && a.shardGoal >= 3
+    && authored === 'Rainbow Falls,Key Chamber,Switch Isles,Gallop Hall,Mirror Hall'
+    && d[4].links.e === 5 && d[5].links.w === 4;          // the two chains are grafted
+})());
 a.start('random');
 T('random mode generates', a.DUN!==a.SRC && a.DUN.length>6 && a.shardGoal===a.DUN.goal);
 a.start('rush');
@@ -128,18 +134,18 @@ a.start('daily');
 T('the daily is the same dungeon twice', a.rooms.map(r=>r.name).join()===seedA);
 a.start('story'); s(120);
 T('the run clock ticks', a.runF>100);
-a.pl.shards=7; a.enter(at('arena'),60,262);
+a.pl.shards=7; a.enter(inRun('arena'),60,262);
 const B=a.ents.find(e=>e.t==='B'); B.hp=1; B.iv=0; B.x=mid(12); B.y=mid(6);
 shoot(9,4,13,4,280);
 a.pl.x=mid(12);a.pl.y=mid(6); s(2);
 T('winning saves a best time', a.won>0 && a.best.story>0);
 const first=a.best.story;
-a.start('story'); s(60); a.pl.shards=7; a.enter(at('arena'),60,262);
+a.start('story'); s(60); a.pl.shards=7; a.enter(inRun('arena'),60,262);
 T('a slower run does not overwrite it', a.best.story===first);
 a.scene='title'; a.title();
 T('title screen renders', true);
 // ---------- light-reactive enemies ----------
-a.newGame(); a.enter(at('drained'), 60, 262);                 // Drained Vault: dark
+go('drained');                                     // Drained Vault: dark
 const slime = { t:'E', x:mid(3), y:mid(9), hp:1, w:0 };
 a.ents.push(slime);
 a.draw();                                          // fills the light map
@@ -151,7 +157,7 @@ slime.x = mid(3); slime.y = mid(9);
 a.pl.x = mid(3); a.pl.y = mid(9) - 30; a.pl.dir = 1.5708; a.pl.cd = 0;
 s(6, { shift:1 });
 T('in your light it can be run down', slime.hp === 0);
-a.newGame(); a.enter(at('gallop'), 60, 262);                 // a room the storm never drank
+go('gallop');                                      // a room the storm never drank
 const bright = a.ents.find(e => e.t === 'E');
 bright.x = a.pl.x + 30; bright.y = a.pl.y; a.pl.dir = 0; a.pl.cd = 0;
 s(6, { shift:1 });

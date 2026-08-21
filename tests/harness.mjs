@@ -11,12 +11,13 @@
 import { createContext, runInContext } from 'node:vm'
 import { fileURLToPath } from 'node:url'
 import { bundleEntry } from '../build/bundle.mjs'
+import { FIXTURE_ROOMS } from './fixture-rooms.mjs'
 
 const API = `;var api={
   step, draw, newGame, fire, cast, enter, gateOpen, solid, resolve, bossHit, thiefHit,
   gen, genRush, start, title, rnd32, SRC, darkness, blocked,
   get LMAP(){return LMAP},
-  get DUN(){return DUN}, get scene(){return scene}, set scene(v){scene=v},
+  get DUN(){return DUN}, set DUN(v){DUN=v}, get scene(){return scene}, set scene(v){scene=v},
   get mode(){return mode}, get runF(){return runF}, get best(){return best},
   get shardGoal(){return shardGoal}, get charging(){return charging}, get stick(){return stick}, get sig(){return sig}, get sigNeed(){return sigNeed}, get tipT(){return tipT}, get cb(){return cb}, get endWin(){return endWin}, get pl(){return pl}, get map(){return map},
   get room(){return room}, get rooms(){return rooms},
@@ -52,6 +53,9 @@ export function load () {
   ctx.window = ctx
   createContext(ctx)
   runInContext(code + API, ctx)
+  // The rooms that no longer ship are still the clearest test bed for the
+  // mechanics they were built around, so put them back for the suites.
+  ctx.api.SRC.push(...runInContext('[' + FIXTURE_ROOMS + ']', ctx))
   ctx.api.cv = ctx.__cv
   ctx.api.window = ctx
   return ctx.api
@@ -79,6 +83,11 @@ export function helpers (a) {
   }
   // Rooms move as the dungeon is redesigned; address them by name.
   const at = name => a.SRC.findIndex(r => r.name.toLowerCase().includes(name.toLowerCase()))
-  const go = (name, x = 60, y = 262) => a.enter(at(name), x, y)
-  return { TS, mid, s, shoot, T, done, state, at, go }
+  // After start(), the live dungeon is not SRC -- story grafts generated rooms
+  // on to the authored ones -- so look these up in the run itself.
+  const inRun = name => a.rooms.findIndex(r => r.name.toLowerCase().includes(name.toLowerCase()))
+  // Enter an authored room by name, from a clean story dungeon. Needed because
+  // a previous test may have left a generated dungeon loaded.
+  const go = (name, x = 60, y = 262) => { a.DUN = a.SRC; a.newGame(); a.enter(at(name), x, y) }
+  return { TS, mid, s, shoot, T, done, state, at, go, inRun }
 }

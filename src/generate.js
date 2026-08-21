@@ -83,7 +83,7 @@ function gen(seed, len){
   const dun = [];
   for(let i = 0; i < len; i++){
     const m = blankRoom(), links = {}, last = i === len - 1;
-    let name = NAMES[(seed + i*7) % NAMES.length], drain = 0;
+    let name = NAMES[(seed + i*3) % NAMES.length], drain = 0;
     if(i){ m[6][0] = '.'; links.w = i - 1; }
     if(!last){ m[6][COLS - 1] = '.'; links.e = i + 1; }
     if(last){ arena(m); name = 'Storm Arena'; }
@@ -181,3 +181,33 @@ const genRush = () => {
   const d = [{name:'Storm Arena', start:[2, 6], links:{}, mp:[0, 1], m:m.map(r => r.join('')), drain:0}];
   d.goal = 0; return d;
 };
+
+// ---------- the story dungeon ----------
+// The opening rooms are hand built, because that is where the game teaches:
+// bridge, key, crystals, gallop, mirrors, one verb at a time. Past that a
+// player knows the vocabulary, so the middle is grown from a fixed seed and
+// costs four bytes instead of a hundred a room.
+function hybrid(seed, keep){
+  const head = SRC.slice(0, keep).map(r => ({...r, links:{...r.links}}));
+  head.forEach((r, i) => {                           // drop links that left the prefix
+    for(const k of Object.keys(r.links)) if(r.links[k] >= keep) {
+      delete r.links[k];
+      if(k === 'n') r.m = r.m.map((row, y) => y === 0 ? row.slice(0, 3) + '#' + row.slice(4) : row);
+      if(k === 's') r.m = r.m.map((row, y) => y === ROWS - 1 ? row.slice(0, 3) + '#' + row.slice(4) : row);
+    }
+  });
+  const tail = gen(seed, 8);
+  head[keep - 1].links.e = keep;                     // graft the two chains together
+  tail.forEach((r, i) => {
+    const links = {};
+    for(const k of Object.keys(r.links)) links[k] = r.links[k] + keep;
+    if(i === 0){ links.w = keep - 1; r.m = r.m.map((row, y) => y === 6 ? '.' + row.slice(1) : row); }
+    r.links = links;
+    r.mp = [r.mp[0] + keep, r.mp[1]];
+  });
+  const dun = head.concat(tail);
+  const all = dun.map(r => r.m.join('')).join('');
+  const shards = (all.split('R').length - 1) + (all.split('M').length - 1);
+  dun.goal = Math.max(3, Math.min(7, shards - 2));
+  return dun;
+}

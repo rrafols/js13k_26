@@ -1,5 +1,6 @@
 // ---------- state ----------
 const SPD = 2.7, MINLEN = 80, MAXLEN = 280, MAXBOWS = 3, BOWLIFE = 420, LENS = 200;
+const STORY = 4019, KEEP = 5;         // the seed the middle of the story grows from
 const PMAX = 3, PRESP = 3000;                        // three splits, then a long walk back
 let prismEnt = null;                                 // the horn on its pedestal, wherever it is
 // A colour door opens for exactly one mask, the same rule a crystal follows.
@@ -27,7 +28,7 @@ const clock = f => (f/3600 | 0) + ':' + ('0' + (f/60 % 60 | 0)).slice(-2);
 const MODES = ['story','daily','random','rush'];
 function start(m){
   mode = m;
-  if(m === 'story'){ DUN = SRC; shardGoal = 7; }
+  if(m === 'story'){ DUN = hybrid(STORY, KEEP); shardGoal = DUN.goal; }
   else if(m === 'rush'){ DUN = genRush(); shardGoal = 0; }
   else {
     seed = m === 'daily' ? daily() : Math.random()*1e9 | 0;

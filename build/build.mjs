@@ -23,6 +23,7 @@
  *   --no-compress      skip dead code removal  (debugging the build)
  *   --keep-comments    keep comments         (debugging the build)
  *   --keep-console     keep console.* calls
+ *   --no-map           skip the byte attribution and heatmap
  *   --stats            per file source sizes
  *   --help             this text
  */
@@ -33,6 +34,9 @@ import { fileURLToPath } from 'node:url'
 import { createContext, runInContext } from 'node:vm'
 import { minify } from 'terser'
 import { readEntry, bundle } from './bundle.mjs'
+import { packMaps } from './rle.mjs'
+import { attribute, fileRanges } from './attribute.mjs'
+import { renderHeatmap } from './heatmap.mjs'
 import { smoke } from './smoke.mjs'
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
@@ -66,6 +70,8 @@ const OPTS = {
   smoke: !flag('no-smoke'),
   comments: flag('keep-comments'),
   console: flag('keep-console'),
+  map: !flag('no-map'),
+  rle: !flag('no-rle'),
   stats: flag('stats')
 }
 
@@ -77,8 +83,11 @@ const size = s => Buffer.byteLength(s, 'utf8')
 const has = cmd => {
   try { execFileSync('which', [cmd], { stdio: 'ignore' }); return true } catch { return false }
 }
-const step = (name, n, note = '') =>
+const stageLog = []
+const step = (name, n, note = '') => {
+  stageLog.push([name, n])
   console.log(`  ${name.padEnd(22)} ${bytes(n).padStart(11)}  ${note}`)
+}
 
 /* --------------------------------------------------------- 1. minifying */
 
@@ -99,6 +108,7 @@ function reservedProps (code) {
 
 async function shrink (code) {
   const result = await minify(code, {
+    sourceMap: OPTS.map && { includeSources: false },
     ecma: 2020,
     module: false,
     toplevel: true,
@@ -131,7 +141,7 @@ async function shrink (code) {
     }
   })
   if (result.error) throw result.error
-  return result.code
+  return { code: result.code, map: result.map && JSON.parse(result.map) }
 }
 
 /* -------------------------------------------------------- 2. roadroller */
@@ -242,7 +252,11 @@ async function main () {
   const raw = size(bundled)
   step(`bundle (${files.length} files)`, raw)
 
-  const min = await shrink(bundled)
+  // Maps are authored as readable ASCII and packed here, not in the source.
+  const { code: packed, rooms: packedRooms, saved } = OPTS.rle ? packMaps(bundled) : {code:bundled, rooms:0, saved:0}
+  if (packedRooms) step('rle maps', size(packed), `${packedRooms} rooms, ${bytes(saved)} of literals`)
+
+  const { code: min, map } = await shrink(packed)
   step('terser', size(min), `${pct(size(min), raw)} smaller${OPTS.compress ? ', dead code removed' : ' (no compress)'}`)
   writeFileSync(join(outDir, 'bundle.js'), min)
 
@@ -256,6 +270,15 @@ async function main () {
       process.exit(1)
     }
     step('smoke', size(min), `booted and ran ${result.frames} frames`)
+  }
+
+  // Attribution needs the map and the code it describes; the page is written
+  // at the end so it can carry the final archive size too.
+  let analysis = null
+  if (map) {
+    analysis = attribute(map, min, fileRanges(packed, files))
+    const covered = (100*analysis.attributed/analysis.total).toFixed(1)
+    step('attribution', analysis.attributed, `${covered}% of output mapped to source`)
   }
 
   const candidates = [zip(minifyHtml(shell, min), 'terser', outDir)]
@@ -278,6 +301,21 @@ async function main () {
   writeFileSync(release, readFileSync(winner.path))
   writeFileSync(join(outDir, 'index.html'), winner.html)
   rmSync(join(outDir, '.stage'), { recursive: true, force: true })
+
+  if (analysis) {
+    const payload = {
+      stages: stageLog.filter(([n]) => !/^(smoke|attribution|html \+ zip)$/.test(n))
+        .concat([['release.zip', winner.n]]),
+      limit: LIMIT, zip: winner.n, minified: size(min), attributed: analysis.attributed,
+      files: analysis.files.map(f => ({
+        f: relative(ROOT, f.file), b: f.bytes,
+        s: f.symbols.filter(s => s.bytes > 0).map(s => [s.name, s.bytes])
+      }))
+    }
+    writeFileSync(join(outDir, 'analysis.json'), JSON.stringify(payload))
+    renderHeatmap(payload, join(outDir, 'heatmap.html'))
+    console.log(`  \x1b[2mheatmap\x1b[0m  ${relative(ROOT, join(outDir, 'heatmap.html'))}`)
+  }
 
   const left = LIMIT - winner.n
   const bar = Math.round(28 * Math.min(1, winner.n / LIMIT))

@@ -72,6 +72,19 @@ function pips(x, y, m){
     if(!on){ g.strokeStyle = '#ffffff66'; g.lineWidth = 1.4; g.beginPath(); g.arc(x - 7 + i*7, y, 3.2, 0, 7); g.stroke(); }
   }
 }
+// Every barred thing in the dungeon -- gate, sun gate, sigil door, colour door
+// -- is a slab of n bars that retracts when it opens. One drawer, five callers.
+function barred(x, y, n, open, col){
+  if(open){
+    g.globalAlpha = .4;
+    for(let i = 0; i < n; i++){ g.fillStyle = col(i); g.fillRect(x + 2 + i*(36/n), y, 34/n, 6); }
+    g.globalAlpha = 1;
+    return;
+  }
+  g.fillStyle = '#2a2350'; g.fillRect(x, y, TS, TS);
+  for(let i = 0; i < n; i++){ g.fillStyle = col(i); g.fillRect(x + 2 + i*(36/n), y + 3, 34/n, TS - 6); }
+  g.fillStyle = '#0006'; g.fillRect(x + 2, y + TS/2 - 3, TS - 4, 6);
+}
 function star(x, y, n, ri, ro, rot){
   g.beginPath();
   for(let i = 0; i < n*2; i++){
@@ -242,15 +255,9 @@ function drawWorld(){
       g.fillStyle = '#c98b3f'; g.fillRect(x + 4, y + 4, TS - 8, TS - 8);
       g.fillStyle = '#5c3a18'; circ(mx, my, 5);
     } else if(t === 'G'){
-      const open = gateOpen();
-      g.fillStyle = open ? '#2c2650' : '#8c8ca8';
-      for(let i = 0; i < 4; i++) g.fillRect(x + 3 + i*9, y + (open ? 0 : 2), 5, open ? 6 : TS - 4);
+      barred(x, y, 4, gateOpen(), () => '#8c8ca8');
     } else if(t === 'Y'){                            // sun gate: one bar per colour held
-      const open = pl.shards >= shardGoal;
-      for(let i = 0; i < shardGoal; i++){
-        g.fillStyle = i < pl.shards ? BANDS[i] : '#4b4468';
-        g.fillRect(x + 2 + i*5.3, y + (open ? 0 : 2), 4, open ? 6 : TS - 4);
-      }
+      barred(x, y, shardGoal, pl.shards >= shardGoal, i => i < pl.shards ? BANDS[i] : '#4b4468');
     } else if(t >= '1' && t <= '7'){                 // crystal: wants exactly this colour
       const on = room.lit.has(c + ',' + r), col = MASKC[+t];
       if(cb) pips(mx, my + 16, +t);
@@ -275,13 +282,7 @@ function drawWorld(){
       if(on){ g.globalAlpha = .25; star(mx, my, 8, 9, 24 + Math.sin(tick/12)*2, -tick/60); g.globalAlpha = 1; }
       g.fillStyle = on ? '#fff' : '#3a3260'; circ(mx, my, 4);
     } else if(t === '|'){                            // the door those sigils open
-      const open = sig >= sigNeed;
-      g.fillStyle = open ? '#2c2650' : '#6b5aa8';
-      g.fillRect(x, y + (open ? 0 : 2), TS, open ? 6 : TS - 4);
-      for(let i = 0; i < sigNeed; i++){
-        g.fillStyle = i < sig ? '#ffe14d' : '#ffffff22';
-        circ(x + 8 + i*10, y + TS/2, 3.4);
-      }
+      barred(x, y, sigNeed, sig >= sigNeed, i => i < sig ? '#ffe14d' : '#4b4468');
     } else if(LOCK[t]){                              // keyed lock
       const col = MASKC[LOCK[t]];
       g.fillStyle = '#2a2350'; g.fillRect(x, y, TS, TS);
@@ -289,17 +290,9 @@ function drawWorld(){
       g.fillStyle = '#0007'; circ(mx, my - 2, 6); g.fillRect(mx - 2.5, my - 2, 5, 11);
       if(cb) pips(mx, my + 15, LOCK[t]);
     } else if(DOOR[t]){                              // colour door
-      const m = DOOR[t], open = room.lit.has(c + ',' + r), col = MASKC[m];
-      if(open){
-        g.fillStyle = col; g.globalAlpha = .35;
-        g.fillRect(x, y + 2, TS, 5); g.fillRect(x, y + TS - 7, TS, 5); g.globalAlpha = 1;
-      } else {
-        g.fillStyle = '#2a2350'; g.fillRect(x, y, TS, TS);
-        g.fillStyle = col;
-        for(let i = 0; i < 4; i++) g.fillRect(x + 3 + i*9, y + 3, 5, TS - 6);
-        g.fillStyle = '#0006'; g.fillRect(x + 2, y + TS/2 - 3, TS - 4, 6);
-        if(cb) pips(mx, my, m);
-      }
+      const m = DOOR[t], open = room.lit.has(c + ',' + r);
+      barred(x, y, 4, open, () => MASKC[m]);
+      if(cb && !open) pips(mx, my, m);
     } else if(t === 'T'){
       g.fillStyle = '#ffb84d'; g.globalAlpha = .3;
       circ(mx, my, 26 + Math.sin(tick/15)*3);
