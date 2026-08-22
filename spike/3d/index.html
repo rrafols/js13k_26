@@ -1,0 +1,55 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Rainbow Unicorn — 3D spike on the 2025 engine</title>
+<style>
+  html,body{margin:0;height:100%;background:#0e0b1e;overflow:hidden;font:13px system-ui;color:#fff}
+  canvas{position:absolute;top:0;left:0}
+  #c{width:100vw;height:100vh}   /* stretched, and it must receive the pointer */
+  #hint{position:fixed;bottom:6px;left:10px;color:#ffffff55;font:11px system-ui}
+</style>
+<canvas id=c3></canvas>
+<script>
+// Headless software GL refuses a WebGL context when the page holds two canvas
+// elements, so ?nohud keeps the HUD canvas out of the DOM. The game still gets
+// it through getElementById, which is the only way it asks for one.
+const NOHUD = location.search.includes('nohud');
+const hudCanvas = document.createElement('canvas');
+hudCanvas.id = 'c'; hudCanvas.width = 960; hudCanvas.height = 564;
+if (!NOHUD) document.body.appendChild(hudCanvas);
+const _gid = document.getElementById.bind(document);
+document.getElementById = id => id === 'c' ? hudCanvas : _gid(id);
+</script>
+<div id=hint>3D spike &mdash; 2026 gameplay, 2025 renderer. WASD, mouse to throw, shift to gallop.</div>
+
+<!-- the 2025 engine, used only for rendering -->
+<script src="../../../js13k_2025/engine/math/matrix.js"></script>
+<script src="../../../js13k_2025/engine/core/Camera.js"></script>
+<script src="../../../js13k_2025/engine/rendering/Renderer.js"></script>
+<script src="../../../js13k_2025/engine/rendering/MeshBuilder.js"></script>
+<script src="../../../js13k_2025/engine/rendering/Mesh.js"></script>
+
+<!-- the 2026 game, unchanged -->
+  <script src="../../src/core.js"></script>
+  <script src="../../src/rooms.js"></script>
+  <script src="../../src/generate.js"></script>
+  <script src="../../src/state.js"></script>
+  <script src="../../src/audio.js"></script>
+  <script src="../../src/fx.js"></script>
+  <script src="../../src/input.js"></script>
+  <script src="../../src/tiles.js"></script>
+  <script src="../../src/light.js"></script>
+  <script src="../../src/storm.js"></script>
+  <script src="../../src/update.js"></script>
+  <script src="../../src/draw.js"></script>
+  <script src="../../src/ui.js"></script>
+  <script src="../../src/main.js"></script>
+
+<script src="render3d.js"></script>
+<script>
+const Q = new URLSearchParams(location.search);
+start(Q.get('mode') || 'story');
+scene = 'play';
+if (Q.get('prism')) { pl.prism = 1; pl.pch = PMAX; }
+if (Q.get('shards')) pl.shards = +Q.get('shards');
+if (Q.get('room') !== null) enter(+Q.get('room'), 60, 262);
+</script>

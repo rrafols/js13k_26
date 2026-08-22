@@ -1,0 +1,52 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Rainbow Unicorn — first person spike</title>
+<style>
+  html,body{margin:0;height:100%;background:#0e0b1e;overflow:hidden;font:13px system-ui;color:#fff}
+  canvas{position:absolute;top:0;left:0}
+  #c{width:100vw;height:100vh}
+  #hint{position:fixed;bottom:6px;left:10px;color:#ffffff66;font:11px system-ui}
+</style>
+<canvas id=c3></canvas>
+<script>
+const FPS = 1;
+const NOHUD = location.search.includes('nohud');
+const hudCanvas = document.createElement('canvas');
+hudCanvas.id = 'c'; hudCanvas.width = 960; hudCanvas.height = 564;
+if (!NOHUD) document.body.appendChild(hudCanvas);
+const _gid = document.getElementById.bind(document);
+document.getElementById = id => id === 'c' ? hudCanvas : _gid(id);
+</script>
+<div id=hint>first person spike &mdash; click to look, WASD to move, hold to charge, release to throw, shift to gallop</div>
+
+<script src="../../../js13k_2025/engine/math/matrix.js"></script>
+<script src="../../../js13k_2025/engine/core/Camera.js"></script>
+<script src="../../../js13k_2025/engine/rendering/Renderer.js"></script>
+<script src="../../../js13k_2025/engine/rendering/MeshBuilder.js"></script>
+<script src="../../../js13k_2025/engine/rendering/Mesh.js"></script>
+
+  <script src="../../src/core.js"></script>
+  <script src="../../src/rooms.js"></script>
+  <script src="../../src/generate.js"></script>
+  <script src="../../src/state.js"></script>
+  <script src="../../src/audio.js"></script>
+  <script src="../../src/fx.js"></script>
+  <script src="../../src/input.js"></script>
+  <script src="../../src/tiles.js"></script>
+  <script src="../../src/light.js"></script>
+  <script src="../../src/storm.js"></script>
+  <script src="../../src/update.js"></script>
+  <script src="../../src/draw.js"></script>
+  <script src="../../src/ui.js"></script>
+  <script src="../../src/main.js"></script>
+
+<script src="../3d/render3d.js"></script>
+<script src="fps.js"></script>
+<script>
+const Q = new URLSearchParams(location.search);
+start(Q.get('mode') || 'story');
+scene = 'play';
+if (Q.get('prism')) { pl.prism = 1; pl.pch = PMAX; }
+if (Q.get('shards')) pl.shards = +Q.get('shards');
+if (Q.get('room') !== null) enter(+Q.get('room'), 60, 262);
+</script>
