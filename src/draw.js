@@ -162,9 +162,15 @@ function drawWorld(){
     } else if(t === '~'){
       g.fillStyle = '#1e4f96'; g.fillRect(x, y, TS, TS);
       g.fillStyle = '#3a78c8';
+      const fl = room.flow || 0;
       const w = Math.sin((c + r)*.9 + tick/28) * 6;
-      g.fillRect(x + 6 + w, y + 12, 14, 3);
-      g.fillRect(x + 16 - w, y + 26, 10, 3);
+      const dy = fl ? (tick*fl*1.6 + c*13) % TS : 0;   // streaks running with the current
+      g.fillRect(x + 6 + w, y + (fl ? dy : 12), 14, 3);
+      g.fillRect(x + 16 - w, y + (fl ? (dy + 20) % TS : 26), 10, 3);
+      if(fl){
+        g.fillStyle = '#7fc4ff44';
+        g.fillRect(x + 12, y + (dy + 10) % TS, 3, 9);
+      }
       g.fillStyle = '#5b9ae0';
       g.fillRect(x + 10 - w*.6, y + 32 + Math.sin(tick/23 + c)*1.5, 8, 2);
       if(at(c, r - 1) !== '~'){                        // shoreline
@@ -575,7 +581,7 @@ function draw(){
     g.globalAlpha = a;
     g.fillStyle = '#0e0b1ecc'; g.fillRect(W/2 - 250, H - 46, 500, 30);
     g.fillStyle = '#ffe14d'; g.font = '14px system-ui'; g.textAlign = 'center';
-    g.fillText(room.tip, W/2, H - 26);
+    g.fillText(tipMsg, W/2, H - 26);
     g.textAlign = 'left'; g.globalAlpha = 1;
   }
   if(stick){                                                      // thumbstick

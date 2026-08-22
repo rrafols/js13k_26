@@ -26,12 +26,16 @@ function arena(m){                                   // the storm's ring, mirror
   m[4][12] = '\\'; m[8][12] = '/'; m[6][8] = '\\'; m[6][16] = '/'; m[6][12] = 'B';
   return m;
 }
-function gen(seed, len){
+function gen(seed, len, taught){
   const R = rnd32(seed), ri = n => R()*n | 0, pick = a => a[ri(a.length)];
-  const drop = (m, ch, lo, hi) => {                  // onto open floor, never the corridor
+  // Onto open floor, and never where it would plug a doorway: the corridor row,
+  // or the tile just inside a north or south opening. A crystal parked there
+  // seals a whole wing off, which the reachability audit duly caught.
+  const drop = (m, ch, lo, hi) => {
     for(let i = 0; i < 80; i++){
       const c = lo + ri(hi - lo), r = 1 + ri(ROWS - 2);
-      if(m[r][c] === '.' && r !== 6){ m[r][c] = ch; return 1; }
+      if(r === 6 || (c === 3 && (r === 1 || r === ROWS - 2))) continue;
+      if(m[r][c] === '.'){ m[r][c] = ch; return 1; }
     }
     return 0;
   };
@@ -78,12 +82,19 @@ function gen(seed, len){
     else for(let i = 3; i--;) drop(m, pick(['E','E','A','U','W']), 4, 20);
     return 0;
   };
-  const pool = ['water','water','crack','crystals','torch','mirror','prism','filter',
-                'lens','sledge','chroma','plateau','blocks','combat'];
+  // Templates are dealt, not sampled: shuffle two decks and hand them out, so a
+  // run shows most of its vocabulary once instead of rolling the same die every
+  // room. The simple half is dealt first, so a run teaches before it tests.
+  const shuffle = a => {
+    for(let i = a.length; --i > 0;){ const j = ri(i + 1); [a[i], a[j]] = [a[j], a[i]]; }
+    return a;
+  };
+  const early = shuffle(['water','crack','crystals','torch','blocks','combat','mirror','plateau']);
+  const late = shuffle(['prism','filter','lens','sledge','chroma']);
   const dun = [];
   for(let i = 0; i < len; i++){
     const m = blankRoom(), links = {}, last = i === len - 1;
-    let name = NAMES[(seed + i*3) % NAMES.length], drain = 0;
+    let name = NAMES[(seed + i*3) % NAMES.length], drain = 0, flow = 0;
     if(i){ m[6][0] = '.'; links.w = i - 1; }
     if(!last){ m[6][COLS - 1] = '.'; links.e = i + 1; }
     if(last){ arena(m); name = 'Storm Arena'; }
@@ -92,7 +103,11 @@ function gen(seed, len){
       drop(m, 'H', 3, 20); drop(m, 'V', 6, 18);      // the thief guards the last door
     } else if(i === 0){ theme(m, 'water'); drop(m, 'H', 3, 20); drop(m, 'q', 3, 20); }
     else {
-      if(theme(m, pick(pool))) m[6][COLS - 1] = 'G';
+      // A dungeon that follows hand-built teaching rooms has no tutorial tier
+      // to repeat, so `taught` pushes it straight to the advanced deck.
+      const deck = (taught || 0) + i < 2 + len*.28 ? early : late;
+      if(!deck.length) deck.push(...shuffle(['water','crystals','combat','mirror','plateau']));
+      if(theme(m, deck.pop())) m[6][COLS - 1] = 'G';
       for(let k = ri(3); k--;){                      // pools: never on the corridor, and
         const c0 = 3 + ri(17), r0 = 1 + ri(9);       // never touching other water, so no
         if(r0 === 6 || r0 + 1 === 6) continue;       // run ever grows past one throw
@@ -104,28 +119,62 @@ function gen(seed, len){
       }
       for(let k = ri(4); k--;) drop(m, 'q', 3, 20);
       if(i === 1) drop(m, 'P', 3, 20);               // the horn, early
-      for(let k = 1 + ri(3); k--;) drop(m, pick(['E','E','A','U','W','q','H']), 4, 20);
+      const wet = m.some(row => row.includes('~'));
+      const foes = wet ? ['E','A','U','W','C'] : ['E','A','U','W','q','H'];
+      for(let k = 1 + (i*3/len | 0); k--;) drop(m, pick(foes), 4, 20);   // more of them, deeper in
       drain = R() < .25 ? 1 : 0;
+      // Water only starts pulling once a player knows how to cross still water.
+      if(wet && i > len*.45) flow = ri(2) ? 1 : -1;
     }
-    dun.push({name, start:[i ? 1 : 2, 6], links, mp:[i, 1], m, drain});
+    dun.push({name, start:[i ? 1 : 2, 6], links, mp:[i, 1], m, drain, flow});
   }
   let goal = 0;
-  for(let b = 1 + ri(2); b--;){                      // side rooms, each with a chest
-    let host = -1;
-    for(let tr = 0; tr < 12 && host < 0; tr++){       // never hang two off one room
+  // A dead end is a detour; a loop is a route. Wings come in both shapes: a
+  // single hidden room off one chain room, or a pair that rejoins the chain two
+  // rooms along, so part of the run has an upper road and a lower one.
+  const wing = (host, exits, name) => {
+    const m = blankRoom();
+    m[ROWS - 1][3] = '.';                            // the way back down
+    dun[host].m[0][3] = '.'; dun[host].links.n = dun.length;
+    const room = {name:'Hidden ' + NAMES[(seed + dun.length) % NAMES.length],
+                  start:[3, 11], links:{s:host}, mp:[dun[host].mp[0], 0], m, drain:0, flow:0};
+    dun.push(room);
+    return room;
+  };
+  const freeHost = () => {
+    for(let tr = 0; tr < 14; tr++){
       const h = 1 + ri(Math.max(1, len - 3));
-      if(dun[h].links.n == null) host = h;
+      if(dun[h].links.n == null) return h;
     }
+    return -1;
+  };
+
+  if(len >= 7 && ri(3) < 2){                         // an upper road, two rooms long
+    let a1 = -1;
+    for(let tr = 0; tr < 14 && a1 < 0; tr++){
+      const h = 1 + ri(Math.max(1, len - 5));
+      if(dun[h].links.n == null && dun[h + 2] && dun[h + 2].links.n == null && h + 2 < len - 2) a1 = h;
+    }
+    if(a1 >= 0){
+      const w1 = wing(a1), i1 = dun.length - 1;
+      const w2 = wing(a1 + 2), i2 = dun.length - 1;
+      w1.links.e = i2; w1.m[6][COLS - 1] = '.';
+      w2.links.w = i1; w2.m[6][0] = '.';
+      w2.mp = [dun[a1 + 2].mp[0], 0];
+      box(w1.m, 8, 3, 8, 9, '#'); w1.m[6][8] = 'X';  // the upper road is not free
+      if(drop(w1.m, 'R', 12, 20)) goal++;          // only count what actually landed
+      drop(w2.m, 'H', 10, 20); drop(w2.m, pick(['E','A','U']), 12, 20);
+    }
+  }
+
+  for(let b = 1 + ri(2); b--;){                      // and a hidden room or two
+    const host = freeHost();
     if(host < 0) continue;
-    const bi = dun.length, m = blankRoom();
-    dun[host].m[0][3] = '.'; dun[host].links.n = bi;
-    m[ROWS - 1][3] = '.';
-    box(m, 9, 4, 14, 4, '#'); box(m, 9, 8, 14, 8, '#');
-    box(m, 9, 5, 9, 7, '#'); box(m, 14, 5, 14, 7, '#');
-    m[4][11] = 'X'; m[6][11] = 'M';                  // gallop in, take the shard
-    drop(m, 'E', 16, 21); drop(m, 'q', 16, 21);
-    dun.push({name:'Hidden ' + NAMES[(seed + bi) % NAMES.length],
-              start:[3, 11], links:{s:host}, mp:[dun[host].mp[0], 0], m, drain:0});
+    const w = wing(host);
+    box(w.m, 9, 4, 14, 4, '#'); box(w.m, 9, 8, 14, 8, '#');
+    box(w.m, 9, 5, 9, 7, '#'); box(w.m, 14, 5, 14, 7, '#');
+    w.m[4][11] = 'X'; w.m[6][11] = 'M';              // gallop in, take the shard
+    drop(w.m, 'E', 16, 21); drop(w.m, 'q', 16, 21);
     goal++;
   }
   for(let k = 2; k--;){                              // and a couple loose in the chain
@@ -159,7 +208,10 @@ function gen(seed, len){
     for(let tr = 0; tr < 14 && lockRoom < 0; tr++){
       const h = 2 + ri(Math.max(1, len - 4)), m3 = dun[h].m;
       let clear = 1;
-      for(let r = 8; r <= 11; r++) for(let c = 2; c <= 5; c++) if(m3[r][c] !== '.') clear = 0;
+      // Check every tile this alcove writes, walls included -- column 6 is part
+      // of it, and building over a shard that was already counted throws the
+      // colour total out.
+      for(let r = 8; r <= 11; r++) for(let c = 2; c <= 6; c++) if(m3[r][c] !== '.') clear = 0;
       if(clear) lockRoom = h;
     }
     if(lockRoom < 0) continue;
@@ -196,7 +248,7 @@ function hybrid(seed, keep){
       if(k === 's') r.m = r.m.map((row, y) => y === ROWS - 1 ? row.slice(0, 3) + '#' + row.slice(4) : row);
     }
   });
-  const tail = gen(seed, 8);
+  const tail = gen(seed, 9, keep);   // the authored rooms already taught the basics
   head[keep - 1].links.e = keep;                     // graft the two chains together
   tail.forEach((r, i) => {
     const links = {};

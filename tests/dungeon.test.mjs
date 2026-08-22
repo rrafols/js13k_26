@@ -148,10 +148,9 @@ function auditKeys(dun, label){
     const g = r.m.map(x => x.split(''));
     const solidHere = ch => '#/\\()>rgb+'.includes(ch) || LOCKCH[ch] ||
                             (ch >= '1' && ch <= '7') || ch === 'S';
+    // Flood from where the player actually stands. Seeding the door tiles made
+    // a plugged doorway look reachable, which hid a real bug.
     const seen = new Set(), q = [[r.start[0], r.start[1]]];
-    if(r.links.w != null) q.push([1, 6]);
-    if(r.links.n != null) q.push([3, 1]);
-    if(r.links.s != null) q.push([3, 11]);
     while(q.length){
       const [c, rr] = q.pop(), k = c + ',' + rr;
       if(c < 0 || rr < 0 || c > 23 || rr > 12 || seen.has(k) || solidHere(g[rr][c])) continue;
@@ -182,7 +181,7 @@ T('in the story, no lock blocks a way out and every key comes first', keyBad.len
 if(keyBad.length) console.log('   ', keyBad.slice(0, 4));
 
 let genBad = [];
-for(let sd = 1; sd <= 40; sd++) genBad = genBad.concat(auditKeys(a.gen(sd*7919, 7 + sd % 4), 'seed' + sd));
+for(let sd = 1; sd <= 40; sd++) genBad = genBad.concat(auditKeys(a.gen(sd*7919, 9 + sd % 4), 'seed' + sd));
 T('and the same holds for 40 generated dungeons', genBad.length === 0);
 if(genBad.length) console.log('   ', genBad.slice(0, 4));
 

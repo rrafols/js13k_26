@@ -8,7 +8,7 @@ T('a different seed gives a different one', JSON.stringify(d1)!==JSON.stringify(
 T('chain plus side rooms', d1.length>9 && d1.goal>0);
 let bad=[];
 for(let sd=1; sd<=40; sd++){
-  const d=a.gen(sd*7919, 7+sd%4);
+  const d=a.gen(sd*7919, 9+sd%4);
   d.forEach((r,i)=>{
     if(r.m.length!==13 || r.m.some(x=>x.length!==24)) bad.push('size '+sd);
     // every room must be enterable and leavable
@@ -38,7 +38,7 @@ if(bad.length) console.log('   first problems:', bad.slice(0,4));
 // every generated room must actually connect its doors, given the tools you carry
 let unreach=[];
 for(let sd=1; sd<=60; sd++){
-  const d=a.gen(sd*104729, 7+sd%4);
+  const d=a.gen(sd*104729, 9+sd%4);
   d.forEach((r,i)=>{
     const grid=r.m.map(x=>x.split(''));
     const hard=c=>'#rgb>'.includes(c);   // walls and fixed glass; doors all open eventually            // walls and fixed glass; all else yields
@@ -202,5 +202,73 @@ a.pl.cd = 0;
 a.cv.ontouchstart(ev([touch(4, 200, 420)]));        // second finger on the left
 s(2);
 T('a second finger gallops', a.pl.dash > 0);
+
+// ---------- water asks something of you now ----------
+go('falls');
+a.pl.x = mid(9); a.pl.y = mid(6);
+shoot(9, 6, 16, 6, 280);
+const life0 = a.bows[0].life;
+a.pl.x = mid(12); a.pl.y = mid(6);                 // stand out on the bridge
+s(20);
+const stood = life0 - a.bows[0].life;
+go('falls');
+a.pl.x = mid(9); a.pl.y = mid(6);
+shoot(9, 6, 16, 6, 280);
+const life1 = a.bows[0].life;
+a.pl.x = mid(3); a.pl.y = mid(6);                  // stand on dry land instead
+s(20);
+T('a rainbow burns faster under your feet', stood > (life1 - a.bows[0].life) * 2);
+
+go('falls');
+a.room.flow = 1;                                   // give this room a current
+a.pl.x = mid(9); a.pl.y = mid(6);
+shoot(9, 6, 16, 6, 280);
+a.pl.x = mid(12); a.pl.y = mid(6);
+const y0 = a.pl.y; s(30);
+T('the current pulls you along the channel', a.pl.y > y0 + 5 || a.pl.hp < 3);
+go('falls');
+T('still water leaves you alone', a.room.flow === 0 || a.room.flow === undefined);
+
+// ---------- the generator deals rather than rolls ----------
+let repeats = 0, pairs = 0, loops = 0, withFlow = 0, clouds = 0;
+for(let sd = 1; sd <= 40; sd++){
+  const d = a.gen(sd*7919, 9 + sd % 4);
+  const chain = d.filter(r => r.links.e != null || r.links.w != null).slice(1, -2);
+  const kind = r => {
+    const t = r.m.join('');
+    for(const [n, c] of [['prism','>'],['filter','r'],['chroma','!'],['sledge',')'],
+                         ['lens','+'],['mirror','\\'],['plateau','^'],['blocks','O'],
+                         ['crack','X'],['torch','f'],['crystals','7'],['water','~']])
+      if(t.includes(c)) return n;
+    return 'combat';
+  };
+  const ks = chain.map(kind);
+  ks.forEach((k, i) => { if(i){ pairs++; if(ks[i-1] === k) repeats++; } });
+  let edges = 0;
+  d.forEach((r, i) => Object.values(r.links).forEach(j => { if(j > i) edges++; }));
+  if(edges >= d.length) loops++;
+  if(d.some(r => r.flow)) withFlow++;
+  if(d.some(r => r.m.join('').includes('C'))) clouds++;
+}
+T('the same template rarely lands twice in a row', repeats/pairs < .05);
+T('most runs have a loop, not just dead ends', loops >= 20);
+T('deeper water starts to flow', withFlow >= 25);
+T('rain clouds actually generate now', clouds >= 20);
+
+// ---------- a mechanic teaches itself, once ----------
+a.mode = 'story';
+a.newGame();
+a.seenTip.clear();
+go('switch');                                      // Switch Isles has lenses
+const lesson = a.tipMsg;
+T('meeting a mechanic explains it', a.tipT > 0 && lesson.length > 10);
+const shown = a.seenTip.size;
+go('switch');
+T('and it does not explain it twice', a.seenTip.size === shown);
+a.mode = 'daily';
+a.seenTip.clear(); a.tipT = 0;
+go('switch');
+T('daily and random stay silent', a.tipT === 0);
+a.mode = 'story';
 
 done();

@@ -79,7 +79,19 @@ function step(){
     }
   }
 
-  const c = pl.x/TS | 0, r = pl.y/TS | 0, t = at(c, r);
+  let c = pl.x/TS | 0, r = pl.y/TS | 0;
+  if(at(c, r) === '~' && bridged.has(c + ',' + r)){
+    // A rainbow is light, not stone: it burns where you stand on it, so a
+    // crossing is a run rather than a stroll. And the current keeps pulling,
+    // so standing still slides you off the edge into the water.
+    for(const b of bows) if(b.parts.some(p => p.tiles.includes(c + ',' + r))) b.life -= WEIGHT;
+    if(tick % 5 === 0) part(pl.x + (Math.random() - .5)*20, pl.y + 14, 1, 0, 1.2, 20, 2);
+    if(room.flow){
+      pl.y += room.flow*FLOW;                        // deliberately unchecked: it can sweep you in
+      c = pl.x/TS | 0; r = pl.y/TS | 0;
+    }
+  }
+  const t = at(c, r);
   if(t === '^' && !pl.z){ pl.z = 1; part(pl.x, pl.y + 8, 8, '#fff', 1.6, 16, 2); }
   else if(t !== '^' && pl.z){                        // step off the cliff and drop
     pl.z = 0; part(pl.x, pl.y + 6, 12, '#8878c8', 2.4, 20, 2.5);
